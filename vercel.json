@@ -2,10 +2,5 @@
   "installCommand": "yarn install",
   "buildCommand": "cd apps/web && yarn build",
   "outputDirectory": "apps/web/dist",
-  "framework": null,
-  "functions": {
-    "api/*.js": {
-      "runtime": "@vercel/node@3"
-    }
-  }
+  "framework": null
 }
