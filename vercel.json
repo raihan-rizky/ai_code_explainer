@@ -1,6 +1,6 @@
 {
   "installCommand": "yarn install",
-  "buildCommand": "cd apps/web && yarn build",
+  "buildCommand": "yarn build",
   "outputDirectory": "apps/web/dist",
   "framework": null
 }
