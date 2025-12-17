@@ -12,12 +12,14 @@ import {
   listChats,
   getMessages,
   addMessage,
+  deleteChat,
 } from "../services/chat_services.js";
 import {
   uploadDocument,
   queryRAG,
   clearDocuments,
   listDocuments,
+  deleteDocument,
 } from "../services/rag.js";
 
 // Configure multer for code file uploads
@@ -242,13 +244,13 @@ app.post("/api/chat/session", async (req, res) => {
     if (!session_key)
       return res.status(400).json({ error: "session_key is required" });
 
-    const { session, chats, activeChat, messages } = await getSessionWithChats(
-      session_key
-    );
+    const { session, chats, activeChat, messages, title } =
+      await getSessionWithChats(session_key);
 
     const docs = await listDocuments(session_key);
 
     console.log("docs", docs);
+    console.log("title", title);
 
     return res.status(200).json({
       success: true,
@@ -257,6 +259,7 @@ app.post("/api/chat/session", async (req, res) => {
       activeChat,
       messages,
       docs,
+      title,
     });
   } catch (err) {
     console.error("Chat Session Error:", err);
@@ -320,12 +323,59 @@ app.get("/api/list-documents", async (req, res) => {
   }
 });
 
+// Delete a chat
+app.delete("/api/chat/:chatId", async (req, res) => {
+  try {
+    const { chatId } = req.params;
+    if (!chatId) {
+      return res.status(400).json({ error: "chatId is required" });
+    }
+
+    await deleteChat(chatId);
+    res.json({ success: true, message: "Chat deleted" });
+  } catch (err) {
+    console.error("Delete Chat Error:", err);
+    res
+      .status(500)
+      .json({ error: "Failed to delete chat", details: err.message });
+  }
+});
+
+// Delete a document by filename
+app.delete("/api/documents", async (req, res) => {
+  try {
+    const { session_key, filename } = req.body;
+    if (!session_key || !filename) {
+      return res
+        .status(400)
+        .json({ error: "session_key and filename are required" });
+    }
+
+    // Get session to get session.id
+    const session = await ensureSession(session_key);
+    await deleteDocument(session.id, filename);
+    res.json({ success: true, message: "Document deleted" });
+  } catch (err) {
+    console.error("Delete Document Error:", err);
+    res
+      .status(500)
+      .json({ error: "Failed to delete document", details: err.message });
+  }
+});
+
 // Send message to a chat
 app.post("/api/chat/send", async (req, res) => {
   try {
     console.log("[ENDPOINT] /api/chat/send hit");
-    const { session_key, chat_id, message, mode, language } = req.body;
-    console.log({ session_key, chat_id, message, mode, language });
+    const {
+      session_key,
+      chat_id,
+      message,
+      mode,
+      language,
+      title = "New chat",
+    } = req.body;
+    console.log({ session_key, chat_id, message, mode, language, title });
 
     if (!session_key || !chat_id || !message) {
       console.warn("[ENDPOINT] Missing required fields");
@@ -343,6 +393,7 @@ app.post("/api/chat/send", async (req, res) => {
       role: "user",
       content: message,
       meta: { mode, language },
+      title: title,
     });
 
     // Get AI response based on mode

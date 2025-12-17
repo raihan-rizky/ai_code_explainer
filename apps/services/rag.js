@@ -212,7 +212,7 @@ export async function queryRAG(queryText, topK = 5) {
       seen.add(meta.filename);
       return true;
     });
-
+  console.log("uploadedDocuments", uploadedDocuments[0].filename);
   // Generate response using Nebius LLM
   console.log("\n[LLM] Generating response with Llama...");
   const response = await nebius.chat.completions.create({
@@ -224,7 +224,8 @@ export async function queryRAG(queryText, topK = 5) {
 Use the context to answer the user's question accurately. 
 If the answer is not in the context, say so.
 Always cite your sources by mentioning ${uploadedDocuments
-          .map((doc, i) => `Source ${i + 1}: ${doc}`)
+          .filter((doc) => doc && doc.filename)
+          .map((doc, i) => `Source ${i + 1}: ${doc.filename}`)
           .join(", ")} when referencing information.`,
       },
       {
@@ -284,7 +285,7 @@ export async function listDocuments(sessionKey) {
   console.log("[LIST_DOCS] Step 2: Fetching documents...");
   const { data, error } = await supabase
     .from("documents")
-    .select("*")
+    .select("metadata")
     .eq("session_id", session.id);
 
   if (error) {
@@ -305,6 +306,7 @@ export async function listDocuments(sessionKey) {
   const documents = data
     .map((doc) => doc.metadata)
     .filter((meta) => {
+      if (!meta || !meta.filename) return false; // Skip if no metadata
       if (seen.has(meta.filename)) return false;
       seen.add(meta.filename);
       return true;
@@ -332,5 +334,31 @@ export async function clearDocuments() {
     throw new Error(`Failed to clear documents: ${error.message}`);
   }
   console.log("[CLEANUP] ✓ All documents cleared");
+  return { success: true };
+}
+
+/**
+ * Delete specific document by session_id and filename
+ */
+export async function deleteDocument(sessionId, filename) {
+  console.log(
+    "[DELETE_DOC] Deleting document:",
+    filename,
+    "from session:",
+    sessionId
+  );
+
+  const { error } = await supabase
+    .from("documents")
+    .delete()
+    .eq("session_id", sessionId)
+    .filter("metadata->>filename", "eq", filename);
+
+  if (error) {
+    console.error("[DELETE_DOC] ✗ Failed to delete document:", error.message);
+    throw new Error(`Failed to delete document: ${error.message}`);
+  }
+
+  console.log("[DELETE_DOC] ✓ Document deleted");
   return { success: true };
 }

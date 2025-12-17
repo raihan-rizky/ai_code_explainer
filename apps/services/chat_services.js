@@ -108,11 +108,30 @@ export async function setChatTitleIfEmpty(chatId, title) {
   if (updErr) throw new Error(updErr.message);
 }
 
+// Delete chat and all its messages
+export async function deleteChat(chatId) {
+  console.log("[DELETE_CHAT] Deleting chat:", chatId);
+
+  // Messages are deleted automatically via ON DELETE CASCADE
+  // Just delete the chat
+  const { error } = await supabase.from("chats").delete().eq("id", chatId);
+
+  if (error) throw new Error(`Failed to delete chat: ${error.message}`);
+  console.log("[DELETE_CHAT] ✓ Chat deleted");
+}
+
 // ============ MESSAGE FUNCTIONS ============
 
 const ALLOWED_ROLES = new Set(["user", "assistant", "system"]);
 
-export async function addMessage({ sessionId, chatId, role, content, meta }) {
+export async function addMessage({
+  sessionId,
+  chatId,
+  role,
+  content,
+  meta,
+  title,
+}) {
   if (!sessionId) {
     const e = new Error("sessionId is required");
     e.statusCode = 400;
@@ -145,9 +164,22 @@ export async function addMessage({ sessionId, chatId, role, content, meta }) {
       role,
       content,
       meta: meta ?? null,
+      title: title ?? "New Chat",
     })
     .select("*")
     .single();
+
+  if (role == "user") {
+    const { error: titleErr } = await supabase
+      .from("chats")
+      .update({ title: title })
+      .eq("id", chatId); // Use chatId, not sessionId
+
+    if (titleErr) {
+      console.error("Failed to update chat title:", titleErr.message);
+      // Don't throw - just log, title update is not critical
+    }
+  }
 
   if (error) {
     throw new Error(`Supabase insert chat_messages failed: ${error.message}`);
@@ -176,6 +208,7 @@ export async function getMessages(chatId, limit = LIMITS.HISTORY_LIMIT) {
 export async function getSessionWithChats(sessionKey) {
   const session = await ensureSession(sessionKey);
   let chats = await listChats(session.id);
+  console.log("chats", chats);
 
   // Auto-create first chat if none exist
   let activeChat = chats[0];

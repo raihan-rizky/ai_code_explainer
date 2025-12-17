@@ -24,7 +24,9 @@ const ChatInterface = () => {
   const [uploadedFiles, setUploadedFiles] = useState([]);
   const [isUploading, setIsUploading] = useState(false);
   const [mode, setMode] = useState("code"); // "code" or "rag"
+  const [title, setTitle] = useState([]);
   console.log("uploadedFiles", uploadedFiles);
+  console.log("title", title);
   // Init: load session + chats + activeChat + messages
   useEffect(() => {
     let mounted = true;
@@ -36,7 +38,7 @@ const ChatInterface = () => {
         const session_key = getSessionKey();
         const data = await postJSON("/chat/session", { session_key });
         console.log(`data: ${data} , docs : ${data.docs}`);
-
+        console.log(typeof data.chats.title);
         if (!mounted) return;
         setSession(data.session);
         setChats(data.chats || []);
@@ -50,7 +52,12 @@ const ChatInterface = () => {
             chunks: doc.total_chunks,
           })),
         ]);
-        console.log("uploadedFiles", uploadedFiles);
+        setTitle((prev) => [
+          ...prev,
+          ...data.chats.map((doc) => ({
+            title: doc.title,
+          })),
+        ]);
 
         console.log(data);
         console.log("data_docs", data.docs);
@@ -74,7 +81,7 @@ const ChatInterface = () => {
 
     const session_key = getSessionKey();
     const userText = inputValue.trim();
-
+    const title = userText.split("\n")[0];
     try {
       setSending(true);
       setError("");
@@ -95,6 +102,7 @@ const ChatInterface = () => {
         message: userText,
         mode,
         language,
+        title,
       });
 
       // Send to backend - it handles LLM/RAG calls and returns both messages
@@ -104,6 +112,7 @@ const ChatInterface = () => {
         message: userText,
         mode,
         language,
+        title,
       });
 
       console.log("[ChatInterface] /chat/send response:", data);
@@ -262,6 +271,61 @@ const ChatInterface = () => {
     }
   };
 
+  // Delete a chat
+  const handleDeleteChat = async (chatId, e) => {
+    e.stopPropagation(); // Prevent openChat from being called
+    if (!confirm("Delete this chat?")) return;
+
+    try {
+      const res = await fetch(
+        `${import.meta.env.VITE_API_BASE_URL}/chat/${chatId}`,
+        { method: "DELETE" }
+      );
+      if (!res.ok) throw new Error("Failed to delete chat");
+
+      // Remove from state
+      setChats((prev) => prev.filter((c) => c.id !== chatId));
+
+      // If deleted chat was active, switch to another
+      if (activeChat?.id === chatId) {
+        const remaining = chats.filter((c) => c.id !== chatId);
+        if (remaining.length > 0) {
+          openChat(remaining[0]);
+        } else {
+          setActiveChat(null);
+          setMessages([]);
+        }
+      }
+    } catch (e) {
+      console.error("Failed to delete chat:", e);
+      setError(e.message);
+    }
+  };
+
+  // Delete a document
+  const handleDeleteDocument = async (filename) => {
+    if (!confirm(`Delete ${filename}?`)) return;
+
+    try {
+      const session_key = getSessionKey();
+      const res = await fetch(
+        `${import.meta.env.VITE_API_BASE_URL}/documents`,
+        {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ session_key, filename }),
+        }
+      );
+      if (!res.ok) throw new Error("Failed to delete document");
+
+      // Remove from state
+      setUploadedFiles((prev) => prev.filter((f) => f.name !== filename));
+    } catch (e) {
+      console.error("Failed to delete document:", e);
+      setError(e.message);
+    }
+  };
+
   return (
     <div className="flex h-screen w-full bg-[#112117] text-white font-['Spline_Sans',sans-serif] overflow-hidden antialiased">
       {/* Sidebar */}
@@ -322,7 +386,7 @@ const ChatInterface = () => {
                 {uploadedFiles.map((file, index) => (
                   <div
                     key={index}
-                    className="flex items-center gap-3 px-3 py-2 rounded-lg bg-white/5 border border-[#254632] text-white/90 text-sm"
+                    className="flex items-center gap-3 px-3 py-2 rounded-lg bg-white/5 border border-[#254632] text-white/90 text-sm group"
                   >
                     <span className="material-symbols-outlined text-[#36e27b] text-[18px]">
                       description
@@ -331,6 +395,15 @@ const ChatInterface = () => {
                     <span className="text-xs text-white/40">
                       {file.chunks} chunks
                     </span>
+                    <button
+                      onClick={() => handleDeleteDocument(file.name)}
+                      className="opacity-0 group-hover:opacity-100 text-white/40 hover:text-red-400 transition-opacity"
+                      title="Delete document"
+                    >
+                      <span className="material-symbols-outlined text-[16px]">
+                        delete
+                      </span>
+                    </button>
                   </div>
                 ))}
               </nav>
@@ -345,10 +418,10 @@ const ChatInterface = () => {
               </h3>
               <nav className="flex flex-col gap-1">
                 {chats.map((chat) => (
-                  <button
+                  <div
                     key={chat.id}
                     onClick={() => openChat(chat)}
-                    className={`flex items-center gap-3 px-3 py-2 rounded-lg text-left text-sm font-medium transition-colors ${
+                    className={`flex items-center gap-3 px-3 py-2 rounded-lg text-left text-sm font-medium transition-colors group cursor-pointer ${
                       activeChat?.id === chat.id
                         ? "bg-white/10 text-white border border-[#36e27b]/30"
                         : "hover:bg-white/5 text-white/60 hover:text-white"
@@ -360,7 +433,16 @@ const ChatInterface = () => {
                     <span className="truncate flex-1">
                       {chat.title || "Untitled"}
                     </span>
-                  </button>
+                    <button
+                      onClick={(e) => handleDeleteChat(chat.id, e)}
+                      className="opacity-0 group-hover:opacity-100 text-white/40 hover:text-red-400 transition-opacity"
+                      title="Delete chat"
+                    >
+                      <span className="material-symbols-outlined text-[16px]">
+                        delete
+                      </span>
+                    </button>
+                  </div>
                 ))}
               </nav>
             </div>
