@@ -1,6 +1,7 @@
 {
   "name": "ai-code-explainer",
   "private": true,
+  "type": "module",
   "workspaces": [
     "apps/*"
   ],

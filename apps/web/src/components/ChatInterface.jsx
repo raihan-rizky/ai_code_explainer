@@ -3,21 +3,130 @@ import { Link } from "react-router-dom";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { FaCopy, FaCheck } from "react-icons/fa";
+import { getSessionKey } from "./actions/session_key";
+import { postJSON, getJSON } from "../lib/api";
 
 const ChatInterface = () => {
+  const [session, setSession] = useState(null);
+  const [chats, setChats] = useState([]);
+  const [activeChat, setActiveChat] = useState(null);
   const [messages, setMessages] = useState([]);
   const [inputValue, setInputValue] = useState("");
-  const [language, setLanguage] = useState("javascript");
-  const [isLoading, setIsLoading] = useState(false);
   const [copiedIndex, setCopiedIndex] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  // RAG state
-  const [mode, setMode] = useState("code"); // "code" or "rag"
-  const [uploadedFiles, setUploadedFiles] = useState([]);
-  const [isUploading, setIsUploading] = useState(false);
+  const [loadingSession, setLoadingSession] = useState(true);
+  const [language, setLanguage] = useState("javascript");
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState("");
   const messagesEndRef = useRef(null);
   const textareaRef = useRef(null);
   const fileInputRef = useRef(null);
+  const [uploadedFiles, setUploadedFiles] = useState([]);
+  const [isUploading, setIsUploading] = useState(false);
+  const [mode, setMode] = useState("code"); // "code" or "rag"
+  console.log("uploadedFiles", uploadedFiles);
+  // Init: load session + chats + activeChat + messages
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        setLoadingSession(true);
+        setError("");
+
+        const session_key = getSessionKey();
+        const data = await postJSON("/chat/session", { session_key });
+        console.log(`data: ${data} , docs : ${data.docs}`);
+
+        if (!mounted) return;
+        setSession(data.session);
+        setChats(data.chats || []);
+        setActiveChat(data.activeChat);
+        setMessages(data.messages || []);
+        setMode(data.messages[0].meta.mode || "code");
+        setUploadedFiles((prev) => [
+          ...prev,
+          ...data.docs.map((doc) => ({
+            name: doc.filename,
+            chunks: doc.total_chunks,
+          })),
+        ]);
+        console.log("uploadedFiles", uploadedFiles);
+
+        console.log(data);
+        console.log("data_docs", data.docs);
+      } catch (e) {
+        if (!mounted) return;
+        setError(e.message);
+      } finally {
+        if (mounted) setLoadingSession(false);
+      }
+    })();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  // Send message to active chat
+  async function onSend(e) {
+    e?.preventDefault?.();
+    if (!inputValue.trim() || sending || !activeChat?.id) return;
+
+    const session_key = getSessionKey();
+    const userText = inputValue.trim();
+
+    try {
+      setSending(true);
+      setError("");
+      setInputValue("");
+
+      // Optimistic user message
+      const tempUser = {
+        id: `temp-${Date.now()}`,
+        role: "user",
+        content: userText,
+        created_at: new Date().toISOString(),
+      };
+      setMessages((prev) => [...prev, tempUser]);
+
+      console.log("[ChatInterface] Sending to /chat/send:", {
+        session_key,
+        chat_id: activeChat.id,
+        message: userText,
+        mode,
+        language,
+      });
+
+      // Send to backend - it handles LLM/RAG calls and returns both messages
+      const data = await postJSON("/chat/send", {
+        session_key,
+        chat_id: activeChat.id,
+        message: userText,
+        mode,
+        language,
+      });
+
+      console.log("[ChatInterface] /chat/send response:", data);
+
+      // Replace temp message with actual messages from server
+      setMessages((prev) => {
+        const withoutTemp = prev.filter((m) => m.id !== tempUser.id);
+        return [...withoutTemp, ...(data.messages || [])];
+      });
+    } catch (error) {
+      console.error("[ChatInterface] Error sending message:", error);
+      const errorMessage = {
+        id: `error-${Date.now()}`,
+        role: "assistant",
+        content: `Error: ${error.message}. Please try again.`,
+        isError: true,
+      };
+      setMessages((prev) => [...prev, errorMessage]);
+      setError(error.message);
+    } finally {
+      setSending(false);
+    }
+  }
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -36,6 +145,24 @@ const ChatInterface = () => {
     }
   }, [inputValue]);
 
+  // Clean up documents when page is closed
+  {
+    /*
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      // Use sendBeacon for reliable delivery when page is closing
+      navigator.sendBeacon(
+        `${import.meta.env.VITE_API_BASE_URL}/documents/clear`
+      );
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+    };
+  }, []);
+*/
+  }
   const handleCopy = (text, index) => {
     navigator.clipboard.writeText(text);
     setCopiedIndex(index);
@@ -46,9 +173,10 @@ const ChatInterface = () => {
   const handleFileUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
-    if (file.type !== "application/pdf") {
-      alert("Please upload a PDF file");
+    const ext = file.name.toLowerCase().slice(file.name.lastIndexOf("."));
+    const allowedExtensions = [".py", ".js", ".jsx", ".cpp"];
+    if (!allowedExtensions.includes(ext)) {
+      alert("Please upload a code file (.py, .js, .jsx, .cpp)");
       return;
     }
 
@@ -56,18 +184,21 @@ const ChatInterface = () => {
 
     try {
       const formData = new FormData();
-      formData.append("pdf", file);
-
+      formData.append("code", file);
+      const session_key = getSessionKey();
+      console.log("session_key", session_key);
+      formData.append("session_key", session_key);
       const response = await fetch(
-        `${import.meta.env.VITE_API_BASE_URL}/upload-pdf`,
+        `${import.meta.env.VITE_API_BASE_URL}/upload-code`,
         {
           method: "POST",
           body: formData,
         }
       );
+      console.log(response);
 
       if (!response.ok) {
-        throw new Error("Failed to upload PDF");
+        throw new Error("Failed to upload code file");
       }
 
       const data = await response.json();
@@ -81,7 +212,7 @@ const ChatInterface = () => {
         ...prev,
         {
           type: "ai",
-          content: `✅ **${file.name}** uploaded successfully!\n\nProcessed ${data.chunks} text chunks. You can now switch to **RAG Mode** and ask questions about this document.`,
+          content: `✅ **${file.name}** uploaded successfully!\n\nProcessed ${data.chunks} text chunks. You can now switch to **RAG Mode** and ask questions about this code.`,
         },
       ]);
 
@@ -97,86 +228,38 @@ const ChatInterface = () => {
     }
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!inputValue.trim() || isLoading) return;
-
-    const userMessage = {
-      type: "user",
-      content: inputValue,
-      language: language,
-      mode: mode,
-    };
-
-    setMessages((prev) => [...prev, userMessage]);
-    setInputValue("");
-    setIsLoading(true);
-
+  // Create new chat in current session
+  const handleNewChat = async () => {
+    const session_key = getSessionKey();
     try {
-      let data;
-
-      if (mode === "rag") {
-        // RAG query endpoint
-        const response = await fetch(
-          `${import.meta.env.VITE_API_BASE_URL}/query-rag`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ query: inputValue }),
-          }
-        );
-
-        if (!response.ok) {
-          throw new Error("Failed to query documents");
-        }
-
-        data = await response.json();
-        const aiMessage = {
-          type: "ai",
-          content: data.answer,
-          sources: data.sources,
-          mode: "rag",
-        };
-        setMessages((prev) => [...prev, aiMessage]);
-      } else {
-        // Code explain endpoint
-        const response = await fetch(
-          `${import.meta.env.VITE_API_BASE_URL}/explain-code`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ code: inputValue, language }),
-          }
-        );
-
-        if (!response.ok) {
-          throw new Error("Failed to get explanation");
-        }
-
-        data = await response.json();
-        const aiMessage = {
-          type: "ai",
-          content: data.explanation,
-          language: data.language,
-          mode: "code",
-        };
-        setMessages((prev) => [...prev, aiMessage]);
-      }
-    } catch (error) {
-      const errorMessage = {
-        type: "ai",
-        content: `Error: ${error.message}. Please try again.`,
-        isError: true,
-      };
-      setMessages((prev) => [...prev, errorMessage]);
-    } finally {
-      setIsLoading(false);
+      const data = await postJSON("/chat/new", {
+        session_key,
+        title: "New chat",
+      });
+      // Update sidebar list
+      setChats((prev) => [data.chat, ...prev]);
+      setActiveChat(data.chat);
+      setMessages([]); // New chat = empty messages
+      setInputValue("");
+    } catch (e) {
+      console.error("Failed to create new chat:", e);
+      setError(e.message);
     }
   };
 
-  const handleNewChat = () => {
-    setMessages([]);
-    setInputValue("");
+  // Switch to a different chat
+  const openChat = async (chat) => {
+    setActiveChat(chat);
+    try {
+      const res = await fetch(
+        `${import.meta.env.VITE_API_BASE_URL}/chat/${chat.id}/messages`
+      );
+      const data = await res.json();
+      setMessages(data.messages || []);
+    } catch (e) {
+      console.error("Failed to load chat messages:", e);
+      setError(e.message);
+    }
   };
 
   return (
@@ -196,6 +279,9 @@ const ChatInterface = () => {
             <h2 className="text-xl font-bold tracking-tight text-white">
               CodeExplainAI
             </h2>
+            {session?.title ? (
+              <p style={{ opacity: 0.7 }}>{session.title}</p>
+            ) : null}
           </div>
 
           {/* New Chat Button */}
@@ -207,12 +293,12 @@ const ChatInterface = () => {
             New Chat
           </button>
 
-          {/* Upload PDF Button */}
+          {/* Upload Code Button */}
           <input
             type="file"
             ref={fileInputRef}
             onChange={handleFileUpload}
-            accept=".pdf"
+            accept=".py,.js,.jsx,.cpp"
             className="hidden"
           />
           <button
@@ -223,7 +309,7 @@ const ChatInterface = () => {
             <span className="material-symbols-outlined">
               {isUploading ? "hourglass_empty" : "upload_file"}
             </span>
-            {isUploading ? "Uploading..." : "Upload PDF"}
+            {isUploading ? "Uploading..." : "Upload Code"}
           </button>
 
           {/* Uploaded Files */}
@@ -255,20 +341,27 @@ const ChatInterface = () => {
           <div className="space-y-6 overflow-y-auto pr-2 flex-1">
             <div>
               <h3 className="text-xs font-semibold text-white/40 uppercase tracking-wider mb-3 px-2">
-                Current Session
+                Chats
               </h3>
               <nav className="flex flex-col gap-1">
-                {messages.length > 0 && (
-                  <a
-                    className="flex items-center gap-3 px-3 py-2 rounded-lg bg-white/5 border border-[#254632] text-white/90 text-sm font-medium"
-                    href="#"
+                {chats.map((chat) => (
+                  <button
+                    key={chat.id}
+                    onClick={() => openChat(chat)}
+                    className={`flex items-center gap-3 px-3 py-2 rounded-lg text-left text-sm font-medium transition-colors ${
+                      activeChat?.id === chat.id
+                        ? "bg-white/10 text-white border border-[#36e27b]/30"
+                        : "hover:bg-white/5 text-white/60 hover:text-white"
+                    }`}
                   >
                     <span className="material-symbols-outlined text-[#36e27b] text-[18px]">
                       chat_bubble
                     </span>
-                    <span className="truncate">{messages.length} messages</span>
-                  </a>
-                )}
+                    <span className="truncate flex-1">
+                      {chat.title || "Untitled"}
+                    </span>
+                  </button>
+                ))}
               </nav>
             </div>
 
@@ -422,7 +515,7 @@ const ChatInterface = () => {
                           description
                         </span>
                         <span>
-                          <strong>RAG Mode:</strong> Upload PDFs and ask
+                          <strong>RAG Mode:</strong> Upload code files and ask
                           questions about them
                         </span>
                       </li>
@@ -435,44 +528,42 @@ const ChatInterface = () => {
             {/* Messages */}
             {messages.map((message, index) => (
               <div
-                key={index}
+                key={message.id ?? `${message.created_at}-${index}`}
                 className={`flex gap-4 ${
-                  message.type === "user" ? "flex-row-reverse" : ""
+                  message.role === "user" ? "flex-row-reverse" : ""
                 }`}
               >
                 {/* Avatar */}
                 <div
                   className={`flex-shrink-0 w-8 h-8 rounded-full mt-1 ${
-                    message.type === "user"
+                    message.role === "user"
                       ? "bg-gradient-to-br from-[#36e27b] to-[#1b3224] border border-[#254632]"
                       : "bg-[#36e27b]/10 flex items-center justify-center text-[#36e27b]"
                   }`}
                 >
-                  {message.type === "ai" && (
+                  {message.role !== "user" && (
                     <span className="material-symbols-outlined text-lg">
                       smart_toy
                     </span>
                   )}
                 </div>
 
-                {/* Message Content */}
+                {/* Message bubble */}
                 <div
                   className={`flex flex-col gap-2 ${
-                    message.type === "user"
+                    message.role === "user"
                       ? "items-end max-w-[80%]"
                       : "max-w-2xl"
                   }`}
                 >
                   <div
                     className={`rounded-2xl p-4 shadow-sm ${
-                      message.type === "user"
+                      message.role === "user"
                         ? "bg-[#36e27b] text-[#122118] rounded-tr-none"
-                        : message.isError
-                        ? "bg-red-900/30 border border-red-500/30 rounded-tl-none"
                         : "bg-[#1b3224] border border-[#254632] rounded-tl-none"
                     }`}
                   >
-                    {message.type === "user" ? (
+                    {message.role === "user" ? (
                       <pre className="text-sm font-mono leading-relaxed whitespace-pre-wrap break-words">
                         {message.content}
                       </pre>
@@ -485,27 +576,7 @@ const ChatInterface = () => {
                     )}
                   </div>
 
-                  {/* Sources for RAG responses */}
-                  {message.sources && message.sources.length > 0 && (
-                    <div className="flex flex-wrap gap-2 mt-1">
-                      {message.sources.slice(0, 3).map((source, i) => (
-                        <div
-                          key={i}
-                          className="flex items-center gap-1 px-2 py-1 rounded bg-black/20 border border-white/10 text-xs text-white/60"
-                        >
-                          <span className="material-symbols-outlined text-[12px]">
-                            description
-                          </span>
-                          <span className="truncate max-w-[150px]">
-                            {source.filename || "Document"}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Action buttons for AI messages */}
-                  {message.type === "ai" && !message.isError && (
+                  {message.role === "assistant" && (
                     <div className="flex items-center gap-2 pl-2">
                       <button
                         onClick={() => handleCopy(message.content, index)}
@@ -525,7 +596,7 @@ const ChatInterface = () => {
             ))}
 
             {/* Loading indicator */}
-            {isLoading && (
+            {sending && (
               <div className="flex gap-4">
                 <div className="flex-shrink-0 w-8 h-8 rounded-full bg-[#36e27b]/10 flex items-center justify-center text-[#36e27b] mt-1">
                   <span className="material-symbols-outlined text-lg">
@@ -546,10 +617,7 @@ const ChatInterface = () => {
 
         {/* Input Area */}
         <div className="flex-shrink-0 p-4 sm:p-6 bg-[#112117] border-t border-[#254632]">
-          <form
-            onSubmit={handleSubmit}
-            className="max-w-3xl mx-auto relative group"
-          >
+          <form onSubmit={onSend} className="max-w-3xl mx-auto relative group">
             {/* Glow Effect */}
             <div className="absolute -inset-0.5 bg-gradient-to-r from-[#36e27b]/30 to-blue-500/30 rounded-2xl blur opacity-20 group-hover:opacity-40 transition duration-500"></div>
 
@@ -561,7 +629,7 @@ const ChatInterface = () => {
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && !e.shiftKey) {
                     e.preventDefault();
-                    handleSubmit(e);
+                    onSend(e);
                   }
                 }}
                 className="w-full bg-transparent border-0 text-white placeholder-white/40 focus:ring-0 focus:outline-none resize-none px-4 py-3 min-h-[60px] max-h-[200px] font-mono text-sm"
@@ -570,7 +638,7 @@ const ChatInterface = () => {
                     ? "Ask a question about your documents..."
                     : "Paste your code here... (Press Enter to send)"
                 }
-                disabled={isLoading}
+                disabled={sending}
               />
               <div className="flex items-center justify-between px-2 pb-1">
                 <div className="flex items-center gap-2">
@@ -578,7 +646,7 @@ const ChatInterface = () => {
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
                     className="p-2 rounded-lg hover:bg-white/10 text-white/60 hover:text-[#36e27b] transition-colors"
-                    title="Upload PDF"
+                    title="Upload Code"
                   >
                     <span className="material-symbols-outlined text-[20px]">
                       upload_file
@@ -590,7 +658,8 @@ const ChatInterface = () => {
                 </div>
                 <button
                   type="submit"
-                  disabled={!inputValue.trim() || isLoading}
+                  disabled={!inputValue.trim() || sending}
+                  onClick={onSend}
                   className="flex items-center justify-center p-2 rounded-lg bg-[#36e27b] text-[#122118] hover:bg-opacity-90 transition-colors shadow-[0_0_10px_rgba(54,226,123,0.2)] disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <span className="material-symbols-outlined text-[20px]">

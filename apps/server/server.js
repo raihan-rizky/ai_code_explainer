@@ -5,17 +5,38 @@ import rateLimit from "express-rate-limit";
 import helmet from "helmet";
 import OpenAI from "openai";
 import multer from "multer";
-import { uploadDocument, queryRAG, clearDocuments } from "./rag.js";
+import {
+  ensureSession,
+  getSessionWithChats,
+  createChat,
+  listChats,
+  getMessages,
+  addMessage,
+} from "../services/chat_services.js";
+import {
+  uploadDocument,
+  queryRAG,
+  clearDocuments,
+  listDocuments,
+} from "../services/rag.js";
 
-// Configure multer for file uploads
+// Configure multer for code file uploads
+const ALLOWED_EXTENSIONS = [".py", ".js", ".jsx", ".cpp"];
+
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
   fileFilter: (req, file, cb) => {
-    if (file.mimetype === "application/pdf") {
+    const ext = file.originalname
+      .toLowerCase()
+      .slice(file.originalname.lastIndexOf("."));
+    if (ALLOWED_EXTENSIONS.includes(ext)) {
       cb(null, true);
     } else {
-      cb(new Error("Only PDF files are allowed"), false);
+      cb(
+        new Error("Only code files (.py, .js, .jsx, .cpp) are allowed"),
+        false
+      );
     }
   },
 });
@@ -42,6 +63,27 @@ app.use(limiter);
 
 app.use(express.json({ limit: "10mb" }));
 
+// Request Logger Middleware
+// Request Logger Middleware
+app.use((req, res, next) => {
+  console.log(`[REQUEST] ${req.method} ${req.url}`);
+  if (
+    ["POST", "PUT", "PATCH"].includes(req.method) &&
+    req.body &&
+    Object.keys(req.body).length > 0
+  ) {
+    try {
+      console.log(
+        "[BODY]",
+        JSON.stringify(req.body, null, 2).substring(0, 500) + "..."
+      );
+    } catch (e) {
+      console.log("[BODY] (Could not stringify body, likely binary/multipart)");
+    }
+  }
+  next();
+});
+
 const API_KEY = process.env.NEBIUS_API_KEY;
 
 const client = new OpenAI({
@@ -50,20 +92,20 @@ const client = new OpenAI({
 });
 
 // buat end point
-app.post("/api/explain-research", async (request, response) => {
-  // tombol explain research, ngirim data (post) ke server side dari client side
-  // "async () => {} "" ==> callback function, bakal otomatis dieksekusi abis pencet tombol explain research
+app.post("/api/explain-code", async (request, response) => {
+  // tombol explain code, ngirim data (post) ke server side dari client side
+  // "async () => {} "" ==> callback function, bakal otomatis dieksekusi abis pencet tombol explain code
 
   try {
-    const { research, language } = request.body;
+    const { code, language } = request.body;
 
-    if (!research) {
-      return response.status(400).json({ error: "research is required" });
+    if (!code) {
+      return response.status(400).json({ error: "code is required" });
     }
     const messages = [
       {
         role: "user",
-        content: `Please explain this research in simple terms:\n${research}`,
+        content: `Please explain this code in simple terms:\n${code}`,
       },
     ];
 
@@ -78,11 +120,11 @@ app.post("/api/explain-research", async (request, response) => {
 
     const explanation = AI_response?.choices[0]?.message?.content;
     if (!explanation) {
-      return response.status(500).json({ error: "Failed to explain research" });
+      return response.status(500).json({ error: "Failed to explain code" });
     }
     response.json({ explanation, language: language || "unknown" });
   } catch (err) {
-    console.error("research Explain API Error:", err);
+    console.error("code Explain API Error:", err);
     response.status(500).json({ error: "Server error", details: err.message });
   }
 });
@@ -103,19 +145,28 @@ checkNebiusConnection();
 
 // ============ RAG Endpoints ============
 
-// Upload PDF and process for RAG
-app.post("/api/upload-pdf", upload.single("pdf"), async (req, res) => {
+// Upload code file and process for RAG
+app.post("/api/upload-code", upload.single("code"), async (req, res) => {
   try {
-    if (!req.file) {
-      return res.status(400).json({ error: "No PDF file uploaded" });
-    }
+    const { session_key } = req.body;
 
-    console.log(`Processing PDF: ${req.file.originalname}`);
-    const result = await uploadDocument(req.file.buffer, req.file.originalname);
+    if (!session_key) {
+      return res.status(400).json({ error: "session_key is required" });
+    }
+    if (!req.file) {
+      return res.status(400).json({ error: "No code file uploaded" });
+    }
+    const session = await ensureSession(session_key);
+    console.log(`Processing code file: ${req.file.originalname}`);
+    const result = await uploadDocument(
+      req.file.buffer,
+      req.file.originalname,
+      session.id
+    );
 
     res.json({
       success: true,
-      message: `PDF processed successfully`,
+      message: `Code file processed successfully`,
       filename: result.filename,
       chunks: result.chunks_count,
     });
@@ -146,6 +197,10 @@ app.post("/api/query-rag", async (req, res) => {
     });
   } catch (err) {
     console.error("RAG Query Error:", err);
+    if (err.response) {
+      console.error("API Response Error:", err.response.data);
+    }
+    console.error("Stack Trace:", err.stack);
     res
       .status(500)
       .json({ error: "Failed to query documents", details: err.message });
@@ -162,6 +217,171 @@ app.delete("/api/documents", async (req, res) => {
     res
       .status(500)
       .json({ error: "Failed to clear documents", details: err.message });
+  }
+});
+
+// Clear all documents via POST (for sendBeacon on page close)
+app.post("/api/documents/clear", async (req, res) => {
+  try {
+    await clearDocuments();
+    res.json({ success: true, message: "All documents cleared" });
+  } catch (err) {
+    console.error("Clear Documents Error:", err);
+    res
+      .status(500)
+      .json({ error: "Failed to clear documents", details: err.message });
+  }
+});
+
+// Chat SERVICE ENDPOINTS
+
+// Get session with chats + activeChat + messages
+app.post("/api/chat/session", async (req, res) => {
+  try {
+    const { session_key } = req.body;
+    if (!session_key)
+      return res.status(400).json({ error: "session_key is required" });
+
+    const { session, chats, activeChat, messages } = await getSessionWithChats(
+      session_key
+    );
+
+    const docs = await listDocuments(session_key);
+
+    console.log("docs", docs);
+
+    return res.status(200).json({
+      success: true,
+      session,
+      chats,
+      activeChat,
+      messages,
+      docs,
+    });
+  } catch (err) {
+    console.error("Chat Session Error:", err);
+    return res.status(err.statusCode || 500).json({
+      error: "Failed to load session",
+      details: err.message,
+    });
+  }
+});
+
+// Create new chat in session
+app.post("/api/chat/new", async (req, res) => {
+  try {
+    const { session_key, title } = req.body;
+    if (!session_key)
+      return res.status(400).json({ error: "session_key is required" });
+
+    const session = await ensureSession(session_key);
+    const chat = await createChat({
+      sessionId: session.id,
+      title: title ?? "New chat",
+    });
+
+    res.json({ success: true, chat });
+  } catch (err) {
+    console.error("Create Chat Error:", err);
+    res
+      .status(500)
+      .json({ error: "Failed to create chat", details: err.message });
+  }
+});
+
+// Get messages for a specific chat
+app.get("/api/chat/:chatId/messages", async (req, res) => {
+  try {
+    const { chatId } = req.params;
+    const messages = await getMessages(chatId);
+    res.json({ success: true, messages });
+  } catch (err) {
+    console.error("Get Messages Error:", err);
+    res
+      .status(500)
+      .json({ error: "Failed to load messages", details: err.message });
+  }
+});
+
+//Get list of uploaded documents
+app.get("/api/list-documents", async (req, res) => {
+  try {
+    const { session_key } = req.body;
+    const documents = await listDocuments(session_key);
+    if (documents.length === 0) {
+      return res.status(404).json({ error: "No documents found" });
+    }
+    res.json({ success: true, documents });
+  } catch (err) {
+    console.error("Get Documents Error:", err);
+    res
+      .status(500)
+      .json({ error: "Failed to load documents", details: err.message });
+  }
+});
+
+// Send message to a chat
+app.post("/api/chat/send", async (req, res) => {
+  try {
+    console.log("[ENDPOINT] /api/chat/send hit");
+    const { session_key, chat_id, message, mode, language } = req.body;
+    console.log({ session_key, chat_id, message, mode, language });
+
+    if (!session_key || !chat_id || !message) {
+      console.warn("[ENDPOINT] Missing required fields");
+      return res
+        .status(400)
+        .json({ error: "session_key, chat_id, message are required" });
+    }
+
+    console.log(`[ENDPOINT] processing message for chat: ${chat_id}`);
+    const session = await ensureSession(session_key);
+
+    const userMsg = await addMessage({
+      sessionId: session.id,
+      chatId: chat_id,
+      role: "user",
+      content: message,
+      meta: { mode, language },
+    });
+
+    // Get AI response based on mode
+    let aiText;
+    if (mode === "rag") {
+      const ragResult = await queryRAG(message);
+      aiText = ragResult.answer;
+    } else {
+      // Code explanation
+      const response = await client.chat.completions.create({
+        model: "meta-llama/Llama-3.3-70B-Instruct",
+        max_tokens: 1024,
+        messages: [
+          {
+            role: "system",
+            content: `You are a helpful code assistant. Explain the following ${
+              language || "code"
+            } code in a clear, educational manner. Focus on what the code does, how it works, and any important concepts.`,
+          },
+          { role: "user", content: message },
+        ],
+      });
+      aiText = response.choices[0].message.content;
+    }
+
+    const assistantMsg = await addMessage({
+      sessionId: session.id,
+      chatId: chat_id,
+      role: "assistant",
+      content: aiText,
+      meta: { mode, language },
+    });
+
+    res.json({ success: true, messages: [userMsg, assistantMsg] });
+  } catch (err) {
+    console.error("Chat Send Error:", err);
+    res
+      .status(500)
+      .json({ error: "Failed to send message", details: err.message });
   }
 });
 

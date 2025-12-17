@@ -1,19 +1,14 @@
-import { createClient } from "@supabase/supabase-js";
-import { PDFParse } from "pdf-parse";
 import { RecursiveCharacterTextSplitter } from "@langchain/textsplitters";
 import OpenAI from "openai";
 import { pipeline } from "@xenova/transformers";
-
-// Initialize Supabase
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_KEY
-);
+import { supabase } from "../db/supabase.js";
 
 // Initialize Nebius OpenAI-compatible client for embeddings and LLM
 const nebius = new OpenAI({
   baseURL: "https://api.tokenfactory.nebius.com/v1/",
   apiKey: process.env.NEBIUS_API_KEY,
+  timeout: 60000, // 60 seconds
+  maxRetries: 3,
 });
 
 /**
@@ -77,18 +72,15 @@ async function getEmbedding(text) {
 }
 
 /**
- * Parse PDF buffer and extract text
+ * Parse code file buffer and extract text
+ * Code files are plain text, so we simply decode the buffer as UTF-8
  */
-export async function parsePDF(buffer) {
-  console.log("[PARSING] Starting PDF parsing...");
-  const uint8Array = new Uint8Array(buffer);
-  const parser = await new PDFParse(uint8Array);
-  const data = await parser.getText();
-  console.log("[PARSING] ✓ PDF parsed successfully");
-  console.log(
-    `[PARSING] Extracted text length: ${data.text.length} characters`
-  );
-  return data.text;
+export function parseCodeFile(buffer) {
+  console.log("[PARSING] Reading code file...");
+  const text = buffer.toString("utf-8");
+  console.log("[PARSING] ✓ Code file read successfully");
+  console.log(`[PARSING] Extracted text length: ${text.length} characters`);
+  return text;
 }
 
 /**
@@ -106,16 +98,16 @@ export async function splitText(text) {
 }
 
 /**
- * Upload document chunks to Supabase with embeddings
+ * Upload code file chunks to Supabase with embeddings
  */
-export async function uploadDocument(pdfBuffer, filename) {
+export async function uploadDocument(codeBuffer, filename, session_id) {
   console.log("\n========================================");
-  console.log("[UPLOAD] Starting document upload...");
+  console.log("[UPLOAD] Starting code file upload...");
   console.log(`[UPLOAD] Filename: ${filename}`);
   console.log("========================================\n");
 
-  // Parse PDF
-  const text = await parsePDF(pdfBuffer);
+  // Parse code file
+  const text = parseCodeFile(codeBuffer);
 
   // Split into chunks
   const chunks = await splitText(text);
@@ -137,6 +129,7 @@ export async function uploadDocument(pdfBuffer, filename) {
         chunk_index: i,
         total_chunks: chunks.length,
       },
+      session_id: session_id,
     });
   }
   console.log("[EMBEDDING] ✓ All embeddings generated\n");
@@ -189,7 +182,7 @@ export async function queryRAG(queryText, topK = 5) {
 
   if (error) {
     console.error("[SEARCH] ✗ Similarity search failed:", error.message);
-    throw new Error(`Similarity search failed: ${error.message}`);
+    throw new Error(`Similarity search fail ed: ${error.message}`);
   }
 
   if (!documents || documents.length === 0) {
@@ -211,6 +204,14 @@ export async function queryRAG(queryText, topK = 5) {
   const context = documents
     .map((doc, i) => `[Source ${i + 1}]: ${doc.content}`)
     .join("\n\n");
+  const seen = new Set();
+  const uploadedDocuments = documents
+    .map((doc) => doc.metadata)
+    .filter((meta) => {
+      if (seen.has(meta.filename)) return false;
+      seen.add(meta.filename);
+      return true;
+    });
 
   // Generate response using Nebius LLM
   console.log("\n[LLM] Generating response with Llama...");
@@ -222,7 +223,9 @@ export async function queryRAG(queryText, topK = 5) {
         content: `You are a helpful assistant that answers questions based on the provided context. 
 Use the context to answer the user's question accurately. 
 If the answer is not in the context, say so.
-Always cite your sources by mentioning [Source X] when referencing information.`,
+Always cite your sources by mentioning ${uploadedDocuments
+          .map((doc, i) => `Source ${i + 1}: ${doc}`)
+          .join(", ")} when referencing information.`,
       },
       {
         role: "user",
@@ -247,6 +250,75 @@ Always cite your sources by mentioning [Source X] when referencing information.`
       similarity: doc.similarity,
     })),
   };
+}
+
+/**
+ * List All documents from vectordb
+ */
+export async function listDocuments(sessionKey) {
+  console.log("\n[LIST_DOCS] ========================================");
+  console.log("[LIST_DOCS] Starting listDocuments...");
+  console.log("[LIST_DOCS] Input session_key:", sessionKey);
+
+  // Step 1: Get session ID from chat_sessions
+  console.log("[LIST_DOCS] Step 1: Looking up session...");
+  const { data: session, error: sessErr } = await supabase
+    .from("chat_sessions")
+    .select("id")
+    .eq("session_key", sessionKey)
+    .maybeSingle(); // FIX: Added parentheses!
+
+  if (sessErr) {
+    console.error("[LIST_DOCS] ✗ Session lookup failed:", sessErr.message);
+    throw new Error(sessErr.message);
+  }
+
+  if (!session) {
+    console.log("[LIST_DOCS] ✗ No session found for this session_key");
+    return [];
+  }
+
+  console.log("[LIST_DOCS] ✓ Session found! ID:", session.id);
+
+  // Step 2: Get documents by session_id
+  console.log("[LIST_DOCS] Step 2: Fetching documents...");
+  const { data, error } = await supabase
+    .from("documents")
+    .select("*")
+    .eq("session_id", session.id);
+
+  if (error) {
+    console.error("[LIST_DOCS] ✗ Document fetch failed:", error.message);
+    throw new Error(error.message);
+  }
+
+  if (!data || data.length === 0) {
+    console.log("[LIST_DOCS] ✓ No documents found (empty)");
+    return [];
+  }
+
+  console.log("[LIST_DOCS] ✓ Found", data.length, "document chunks");
+
+  // Step 3: Deduplicate by filename
+  console.log("[LIST_DOCS] Step 3: Deduplicating...");
+  const seen = new Set();
+  const documents = data
+    .map((doc) => doc.metadata)
+    .filter((meta) => {
+      if (seen.has(meta.filename)) return false;
+      seen.add(meta.filename);
+      return true;
+    });
+
+  console.log("[LIST_DOCS] ✓ Unique documents:", documents.length);
+  console.log(
+    "[LIST_DOCS] Files:",
+    documents.map((d) => d.filename).join(", ")
+  );
+  console.log("[LIST_DOCS] ========================================\n");
+  console.log("documents", documents);
+
+  return documents;
 }
 
 /**
