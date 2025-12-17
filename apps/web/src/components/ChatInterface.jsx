@@ -11,8 +11,13 @@ const ChatInterface = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [copiedIndex, setCopiedIndex] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  // RAG state
+  const [mode, setMode] = useState("code"); // "code" or "rag"
+  const [uploadedFiles, setUploadedFiles] = useState([]);
+  const [isUploading, setIsUploading] = useState(false);
   const messagesEndRef = useRef(null);
   const textareaRef = useRef(null);
+  const fileInputRef = useRef(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -37,6 +42,61 @@ const ChatInterface = () => {
     setTimeout(() => setCopiedIndex(null), 2000);
   };
 
+  // Handle PDF upload
+  const handleFileUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.type !== "application/pdf") {
+      alert("Please upload a PDF file");
+      return;
+    }
+
+    setIsUploading(true);
+
+    try {
+      const formData = new FormData();
+      formData.append("pdf", file);
+
+      const response = await fetch(
+        `${import.meta.env.VITE_API_BASE_URL}/upload-pdf`,
+        {
+          method: "POST",
+          body: formData,
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to upload PDF");
+      }
+
+      const data = await response.json();
+      setUploadedFiles((prev) => [
+        ...prev,
+        { name: file.name, chunks: data.chunks },
+      ]);
+
+      // Add system message
+      setMessages((prev) => [
+        ...prev,
+        {
+          type: "ai",
+          content: `✅ **${file.name}** uploaded successfully!\n\nProcessed ${data.chunks} text chunks. You can now switch to **RAG Mode** and ask questions about this document.`,
+        },
+      ]);
+
+      // Auto-switch to RAG mode
+      setMode("rag");
+    } catch (error) {
+      alert(`Upload failed: ${error.message}`);
+    } finally {
+      setIsUploading(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!inputValue.trim() || isLoading) return;
@@ -45,6 +105,7 @@ const ChatInterface = () => {
       type: "user",
       content: inputValue,
       language: language,
+      mode: mode,
     };
 
     setMessages((prev) => [...prev, userMessage]);
@@ -52,26 +113,55 @@ const ChatInterface = () => {
     setIsLoading(true);
 
     try {
-      const response = await fetch(
-        `${import.meta.env.VITE_API_BASE_URL}/explain-code`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ code: inputValue, language }),
+      let data;
+
+      if (mode === "rag") {
+        // RAG query endpoint
+        const response = await fetch(
+          `${import.meta.env.VITE_API_BASE_URL}/query-rag`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ query: inputValue }),
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error("Failed to query documents");
         }
-      );
 
-      if (!response.ok) {
-        throw new Error("Failed to get explanation");
+        data = await response.json();
+        const aiMessage = {
+          type: "ai",
+          content: data.answer,
+          sources: data.sources,
+          mode: "rag",
+        };
+        setMessages((prev) => [...prev, aiMessage]);
+      } else {
+        // Code explain endpoint
+        const response = await fetch(
+          `${import.meta.env.VITE_API_BASE_URL}/explain-code`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ code: inputValue, language }),
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error("Failed to get explanation");
+        }
+
+        data = await response.json();
+        const aiMessage = {
+          type: "ai",
+          content: data.explanation,
+          language: data.language,
+          mode: "code",
+        };
+        setMessages((prev) => [...prev, aiMessage]);
       }
-
-      const data = await response.json();
-      const aiMessage = {
-        type: "ai",
-        content: data.explanation,
-        language: data.language,
-      };
-      setMessages((prev) => [...prev, aiMessage]);
     } catch (error) {
       const errorMessage = {
         type: "ai",
@@ -111,17 +201,61 @@ const ChatInterface = () => {
           {/* New Chat Button */}
           <button
             onClick={handleNewChat}
-            className="w-full flex items-center justify-center gap-2 bg-[#36e27b] text-[#122118] font-bold py-3 px-4 rounded-xl hover:opacity-90 transition-opacity mb-8 shadow-[0_0_15px_rgba(54,226,123,0.2)]"
+            className="w-full flex items-center justify-center gap-2 bg-[#36e27b] text-[#122118] font-bold py-3 px-4 rounded-xl hover:opacity-90 transition-opacity mb-4 shadow-[0_0_15px_rgba(54,226,123,0.2)]"
           >
             <span className="material-symbols-outlined">add</span>
             New Chat
           </button>
 
+          {/* Upload PDF Button */}
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handleFileUpload}
+            accept=".pdf"
+            className="hidden"
+          />
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isUploading}
+            className="w-full flex items-center justify-center gap-2 bg-[#254632] text-white font-bold py-3 px-4 rounded-xl hover:bg-[#2d5a3d] transition-colors mb-8 border border-[#254632] disabled:opacity-50"
+          >
+            <span className="material-symbols-outlined">
+              {isUploading ? "hourglass_empty" : "upload_file"}
+            </span>
+            {isUploading ? "Uploading..." : "Upload PDF"}
+          </button>
+
+          {/* Uploaded Files */}
+          {uploadedFiles.length > 0 && (
+            <div className="mb-6">
+              <h3 className="text-xs font-semibold text-white/40 uppercase tracking-wider mb-3 px-2">
+                Uploaded Documents
+              </h3>
+              <nav className="flex flex-col gap-1">
+                {uploadedFiles.map((file, index) => (
+                  <div
+                    key={index}
+                    className="flex items-center gap-3 px-3 py-2 rounded-lg bg-white/5 border border-[#254632] text-white/90 text-sm"
+                  >
+                    <span className="material-symbols-outlined text-[#36e27b] text-[18px]">
+                      description
+                    </span>
+                    <span className="truncate flex-1">{file.name}</span>
+                    <span className="text-xs text-white/40">
+                      {file.chunks} chunks
+                    </span>
+                  </div>
+                ))}
+              </nav>
+            </div>
+          )}
+
           {/* Chat History */}
           <div className="space-y-6 overflow-y-auto pr-2 flex-1">
             <div>
               <h3 className="text-xs font-semibold text-white/40 uppercase tracking-wider mb-3 px-2">
-                Today
+                Current Session
               </h3>
               <nav className="flex flex-col gap-1">
                 {messages.length > 0 && (
@@ -132,7 +266,7 @@ const ChatInterface = () => {
                     <span className="material-symbols-outlined text-[#36e27b] text-[18px]">
                       chat_bubble
                     </span>
-                    <span className="truncate">Current Session</span>
+                    <span className="truncate">{messages.length} messages</span>
                   </a>
                 )}
               </nav>
@@ -195,9 +329,9 @@ const ChatInterface = () => {
             </button>
             <div className="flex flex-col">
               <h1 className="text-base font-bold text-white flex items-center gap-2">
-                Code Explainer
+                {mode === "rag" ? "Document Q&A" : "Code Explainer"}
                 <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#36e27b]/10 text-[#36e27b] border border-[#36e27b]/20">
-                  Llama 3.3 70B
+                  {mode === "rag" ? "RAG Mode" : "Llama 3.3 70B"}
                 </span>
               </h1>
               <p className="text-xs text-white/50">
@@ -206,20 +340,46 @@ const ChatInterface = () => {
             </div>
           </div>
           <div className="flex items-center gap-4">
-            {/* Language Selector */}
-            <select
-              value={language}
-              onChange={(e) => setLanguage(e.target.value)}
-              className="bg-[#1b3224] border border-[#254632] text-white text-sm rounded-lg px-3 py-1.5 focus:outline-none focus:border-[#36e27b]"
-            >
-              <option value="javascript">JavaScript</option>
-              <option value="python">Python</option>
-              <option value="java">Java</option>
-              <option value="typescript">TypeScript</option>
-              <option value="c++">C++</option>
-              <option value="go">Go</option>
-              <option value="rust">Rust</option>
-            </select>
+            {/* Mode Toggle */}
+            <div className="flex items-center gap-1 bg-[#1b3224] rounded-lg p-1 border border-[#254632]">
+              <button
+                onClick={() => setMode("code")}
+                className={`px-3 py-1.5 rounded-md text-xs font-bold transition-colors ${
+                  mode === "code"
+                    ? "bg-[#36e27b] text-[#122118]"
+                    : "text-white/60 hover:text-white"
+                }`}
+              >
+                Code
+              </button>
+              <button
+                onClick={() => setMode("rag")}
+                className={`px-3 py-1.5 rounded-md text-xs font-bold transition-colors ${
+                  mode === "rag"
+                    ? "bg-[#36e27b] text-[#122118]"
+                    : "text-white/60 hover:text-white"
+                }`}
+              >
+                RAG
+              </button>
+            </div>
+
+            {/* Language Selector (only in code mode) */}
+            {mode === "code" && (
+              <select
+                value={language}
+                onChange={(e) => setLanguage(e.target.value)}
+                className="bg-[#1b3224] border border-[#254632] text-white text-sm rounded-lg px-3 py-1.5 focus:outline-none focus:border-[#36e27b]"
+              >
+                <option value="javascript">JavaScript</option>
+                <option value="python">Python</option>
+                <option value="java">Java</option>
+                <option value="typescript">TypeScript</option>
+                <option value="c++">C++</option>
+                <option value="go">Go</option>
+                <option value="rust">Rust</option>
+              </select>
+            )}
             <button
               onClick={handleNewChat}
               className="text-white/60 hover:text-[#36e27b] transition-colors"
@@ -244,12 +404,29 @@ const ChatInterface = () => {
                 <div className="flex flex-col gap-2">
                   <div className="bg-[#1b3224] border border-[#254632] rounded-2xl rounded-tl-none p-4 shadow-sm">
                     <p className="text-sm leading-relaxed text-white/90">
-                      Hello! I&apos;m <strong>CodeExplainAI</strong>, your
-                      personal code assistant. Paste any code snippet below and
-                      I&apos;ll explain it in simple terms. Select your
-                      programming language from the dropdown above for better
-                      accuracy!
+                      Hello! I&apos;m <strong>CodeExplainAI</strong>. I can help
+                      you in two ways:
                     </p>
+                    <ul className="mt-3 space-y-2 text-sm text-white/80">
+                      <li className="flex items-start gap-2">
+                        <span className="material-symbols-outlined text-[#36e27b] text-sm mt-0.5">
+                          code
+                        </span>
+                        <span>
+                          <strong>Code Mode:</strong> Paste code and get instant
+                          explanations
+                        </span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <span className="material-symbols-outlined text-[#36e27b] text-sm mt-0.5">
+                          description
+                        </span>
+                        <span>
+                          <strong>RAG Mode:</strong> Upload PDFs and ask
+                          questions about them
+                        </span>
+                      </li>
+                    </ul>
                   </div>
                 </div>
               </div>
@@ -307,6 +484,25 @@ const ChatInterface = () => {
                       </div>
                     )}
                   </div>
+
+                  {/* Sources for RAG responses */}
+                  {message.sources && message.sources.length > 0 && (
+                    <div className="flex flex-wrap gap-2 mt-1">
+                      {message.sources.slice(0, 3).map((source, i) => (
+                        <div
+                          key={i}
+                          className="flex items-center gap-1 px-2 py-1 rounded bg-black/20 border border-white/10 text-xs text-white/60"
+                        >
+                          <span className="material-symbols-outlined text-[12px]">
+                            description
+                          </span>
+                          <span className="truncate max-w-[150px]">
+                            {source.filename || "Document"}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
 
                   {/* Action buttons for AI messages */}
                   {message.type === "ai" && !message.isError && (
@@ -369,13 +565,27 @@ const ChatInterface = () => {
                   }
                 }}
                 className="w-full bg-transparent border-0 text-white placeholder-white/40 focus:ring-0 focus:outline-none resize-none px-4 py-3 min-h-[60px] max-h-[200px] font-mono text-sm"
-                placeholder="Paste your code here... (Press Enter to send, Shift+Enter for new line)"
+                placeholder={
+                  mode === "rag"
+                    ? "Ask a question about your documents..."
+                    : "Paste your code here... (Press Enter to send)"
+                }
                 disabled={isLoading}
               />
               <div className="flex items-center justify-between px-2 pb-1">
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="p-2 rounded-lg hover:bg-white/10 text-white/60 hover:text-[#36e27b] transition-colors"
+                    title="Upload PDF"
+                  >
+                    <span className="material-symbols-outlined text-[20px]">
+                      upload_file
+                    </span>
+                  </button>
                   <span className="text-xs text-white/40 px-2">
-                    {language.toUpperCase()}
+                    {mode === "rag" ? "RAG MODE" : language.toUpperCase()}
                   </span>
                 </div>
                 <button
@@ -390,8 +600,9 @@ const ChatInterface = () => {
               </div>
             </div>
             <p className="text-center text-[10px] text-white/30 mt-3">
-              CodeExplainAI uses Llama 3.3 70B. Responses may not always be
-              accurate.
+              {mode === "rag"
+                ? "RAG uses Supabase pgvector for semantic search"
+                : "CodeExplainAI uses Llama 3.3 70B"}
             </p>
           </form>
         </div>

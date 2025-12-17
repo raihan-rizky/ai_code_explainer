@@ -4,6 +4,21 @@ import cors from "cors";
 import rateLimit from "express-rate-limit";
 import helmet from "helmet";
 import OpenAI from "openai";
+import multer from "multer";
+import { uploadDocument, queryRAG, clearDocuments } from "./rag.js";
+
+// Configure multer for file uploads
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype === "application/pdf") {
+      cb(null, true);
+    } else {
+      cb(new Error("Only PDF files are allowed"), false);
+    }
+  },
+});
 
 const app = express();
 
@@ -35,23 +50,20 @@ const client = new OpenAI({
 });
 
 // buat end point
-app.post("/api/explain-code", async (request, response) => {
-  // tombol explain code, ngirim data (post) ke server side dari client side
-  // "async () => {} "" ==> callback function, bakal otomatis dieksekusi abis pencet tombol explain code
+app.post("/api/explain-research", async (request, response) => {
+  // tombol explain research, ngirim data (post) ke server side dari client side
+  // "async () => {} "" ==> callback function, bakal otomatis dieksekusi abis pencet tombol explain research
 
   try {
-    const { code, language } = request.body;
+    const { research, language } = request.body;
 
-    if (!code) {
-      return response.status(400).json({ error: "Code is required" });
+    if (!research) {
+      return response.status(400).json({ error: "research is required" });
     }
     const messages = [
       {
         role: "user",
-        content: `Please explain this ${
-          language || ""
-        } code in simple terms:\n\n\`\`\`${language || ""}\n${code}
-      \n\`\`\``,
+        content: `Please explain this research in simple terms:\n${research}`,
       },
     ];
 
@@ -66,11 +78,11 @@ app.post("/api/explain-code", async (request, response) => {
 
     const explanation = AI_response?.choices[0]?.message?.content;
     if (!explanation) {
-      return response.status(500).json({ error: "Failed to explain code" });
+      return response.status(500).json({ error: "Failed to explain research" });
     }
     response.json({ explanation, language: language || "unknown" });
   } catch (err) {
-    console.error("Code Explain API Error:", err);
+    console.error("research Explain API Error:", err);
     response.status(500).json({ error: "Server error", details: err.message });
   }
 });
@@ -88,6 +100,71 @@ app.post("/api/explain-code", async (request, response) => {
 
 checkNebiusConnection();
  */
+
+// ============ RAG Endpoints ============
+
+// Upload PDF and process for RAG
+app.post("/api/upload-pdf", upload.single("pdf"), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: "No PDF file uploaded" });
+    }
+
+    console.log(`Processing PDF: ${req.file.originalname}`);
+    const result = await uploadDocument(req.file.buffer, req.file.originalname);
+
+    res.json({
+      success: true,
+      message: `PDF processed successfully`,
+      filename: result.filename,
+      chunks: result.chunks_count,
+    });
+  } catch (err) {
+    console.error("PDF Upload Error:", err);
+    res
+      .status(500)
+      .json({ error: "Failed to process PDF", details: err.message });
+  }
+});
+
+// Query RAG with similarity search
+app.post("/api/query-rag", async (req, res) => {
+  try {
+    const { query } = req.body;
+
+    if (!query) {
+      return res.status(400).json({ error: "Query is required" });
+    }
+
+    console.log(`RAG Query: ${query.substring(0, 50)}...`);
+    const result = await queryRAG(query);
+
+    res.json({
+      success: true,
+      answer: result.answer,
+      sources: result.sources,
+    });
+  } catch (err) {
+    console.error("RAG Query Error:", err);
+    res
+      .status(500)
+      .json({ error: "Failed to query documents", details: err.message });
+  }
+});
+
+// Clear all documents (for testing)
+app.delete("/api/documents", async (req, res) => {
+  try {
+    await clearDocuments();
+    res.json({ success: true, message: "All documents cleared" });
+  } catch (err) {
+    console.error("Clear Documents Error:", err);
+    res
+      .status(500)
+      .json({ error: "Failed to clear documents", details: err.message });
+  }
+});
+
 const PORT = process.env.PORT || 3002;
 
 app.listen(PORT, () => {

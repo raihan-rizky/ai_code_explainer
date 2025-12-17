@@ -1,10 +1,17 @@
-import OpenAI from "openai";
+import { ChatOpenAI } from "@langchain/openai";
+import { HumanMessage } from "@langchain/core/messages";
 
-const client = new OpenAI({
-  baseURL: "https://api.tokenfactory.nebius.com/v1/",
+const llm = new ChatOpenAI({
+  model: "meta-llama/Llama-3.3-70B-Instruct",
+  temperature: 0.3,
+  maxTokens: 400,
+
+  // IMPORTANT: point LangChain to Nebius's OpenAI-compatible endpoint
   apiKey: process.env.NEBIUS_API_KEY,
+  configuration: {
+    baseURL: "https://api.tokenfactory.nebius.com/v1/",
+  },
 });
-
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
@@ -18,21 +25,17 @@ export default async function handler(req, res) {
     const { code, language } = req.body;
     if (!code) return res.status(400).json({ error: "Code is required" });
 
-    const AI_response = await client.chat.completions.create({
-      model: "meta-llama/Llama-3.3-70B-Instruct",
-      messages: [
-        {
-          role: "user",
-          content: `Please explain this ${
-            language || ""
-          } code in simple terms:\n\n\`\`\`${language || ""}\n${code}\n\`\`\``,
-        },
-      ],
-      temperature: 0.3,
-      max_tokens: 400,
-    });
+    const prompt = `Please explain this ${language || ""} code in simple terms:
 
-    const explanation = AI_response?.choices[0]?.message?.content;
+\`\`\`${language || ""}
+${code}
+\`\`\`
+
+Keep it concise and beginner-friendly.`;
+
+    // LangChain returns an AIMessage; `.content` is the text
+    const msg = await llm.invoke([new HumanMessage(prompt)]);
+    const explanation = msg?.content;
     if (!explanation)
       return res.status(500).json({ error: "Failed to explain code" });
 
