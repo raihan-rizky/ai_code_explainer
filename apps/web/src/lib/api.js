@@ -1,6 +1,5 @@
 // src/lib/api.js
-// Use relative path /api for Vercel, or VITE_API_BASE_URL for local dev
-const API_BASE = import.meta.env.VITE_API_BASE_URL || "/api";
+const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:8080";
 
 export async function postJSON(path, body) {
   const res = await fetch(`${API_BASE}${path}`, {
