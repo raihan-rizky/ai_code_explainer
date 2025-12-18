@@ -674,7 +674,7 @@ const ChatInterface = () => {
                 </div>
                 <button
                   type="submit"
-                  disabled={!inputValue.trim() || sending}
+                  disabled={!inputValue.trim() || sending || !activeChat?.id}
                   onClick={onSend}
                   className="flex items-center justify-center p-2 rounded-lg bg-[#36e27b] text-[#122118] hover:bg-opacity-90 transition-colors shadow-[0_0_10px_rgba(54,226,123,0.2)] disabled:opacity-50 disabled:cursor-not-allowed"
                 >

@@ -11,7 +11,6 @@ export async function explainCode(prevState, formData) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ code, language }),
-        credentials: "false",
       }
     );
     if (!response.ok) {
@@ -43,7 +42,6 @@ export async function listDocuments(session_id) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ session_id }),
-        credentials: "false",
       }
     );
     if (!response.ok) {

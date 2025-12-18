@@ -509,16 +509,6 @@ app.post("/api/chat/send-stream", async (req, res) => {
         .json({ error: "session_key, chat_id, message are required" });
     }
 
-    // Set SSE headers
-    res.header("Vary", "Origin");
-    res.setHeader("Content-Type", "text/event-stream");
-    res.setHeader("Cache-Control", "no-cache");
-    res.setHeader("Connection", "keep-alive");
-    res.setHeader(
-      "Access-Control-Allow-Origin",
-      "https://codexplain.up.railway.app"
-    );
-
     const session = await ensureSession(session_key);
 
     // Save user message
