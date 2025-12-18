@@ -2,11 +2,14 @@ const Footer = () => {
   return (
     <footer className="w-full border-t border-[#254632] bg-[#112117] py-10 px-4">
       <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-6">
-        <div className="flex items-center gap-2">
-          <span className="material-symbols-outlined text-[#36e27b]">code</span>
-          <span className="text-white font-bold tracking-tight">
-            CodeExplainAI
-          </span>
+        <div className="container flex items-center justify-center pt-2  w-60 h-10 mb-4 gap-3 ">
+          <img
+            src="../../public/images/logo-image.png"
+            width="150"
+            height="150"
+            alt="logo-image"
+            className="object-cover"
+          />
         </div>
         <div className="flex gap-8 text-sm text-white/60">
           <a className="hover:text-[#36e27b] transition-colors" href="#">

@@ -47,8 +47,8 @@ const About = () => {
             <span className="text-[#36e27b]">understand any code</span>
           </h2>
           <p className="text-white/70 text-lg max-w-3xl mx-auto leading-relaxed">
-            CodeExplainAI uses Conversational AI to help developers, students,
-            and curious minds understand complex code instantly. We make
+            Codexa uses Conversational AI to help developers, students, and
+            curious minds understand complex code instantly. We make
             expert-level code explanations accessible to everyone, anytime.
           </p>
         </div>
@@ -61,10 +61,10 @@ const About = () => {
             </h3>
             <div className="space-y-4 text-white/70 leading-relaxed">
               <p>
-                We started CodeExplainAI because understanding code is hard.
-                Whether you{"'"}re a student learning to program, a developer
-                joining a new team, or someone trying to understand a complex
-                codebase—you deserve clarity.
+                We started Codexa because understanding code is hard. Whether
+                you{"'"}re a student learning to program, a developer joining a
+                new team, or someone trying to understand a complex codebase—you
+                deserve clarity.
               </p>
               <p>
                 Traditional documentation is often outdated or incomplete.
@@ -80,9 +80,9 @@ const About = () => {
                 clarity.
               </p>
               <p>
-                Today, CodeExplainAI is building the platform where code
-                understanding is no longer a barrier. {"We're"} creating a world
-                where learning from the best is no longer a privilege—
+                Today, Codexa is building the platform where code understanding
+                is no longer a barrier. {"We're"} creating a world where
+                learning from the best is no longer a privilege—
                 {"it's"} a reality for everyone.
               </p>
             </div>

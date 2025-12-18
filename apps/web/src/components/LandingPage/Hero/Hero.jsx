@@ -155,11 +155,12 @@ const Hero = () => {
         {/* Hero Visual / Mockup */}
         <div className="w-full flex-1 relative">
           {/* Glow Effect */}
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[300px] h-[300px] bg-[#36e27b]/20 blur-[100px] rounded-full -z-10"></div>
-          <div className="w-full bg-[#1b3224] border border-[#254632] rounded-xl p-2 shadow-2xl overflow-hidden aspect-[4/3] flex flex-col">
-            <div className="w-full h-full bg-[#112117] rounded-lg overflow-hidden relative p-4">
-              {/* Code Input Mockup */}
-              <div className="absolute top-4 left-4 right-4">
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[300px] h-[300px] bg-[#36e27b]/20 blur-[100px] rounded-full z-10"></div>
+          {/* RESPONSIVE FIX: flex-col on mobile, aspect ratio on md */}
+          <div className="w-full bg-[#1b3224] border border-[#254632] rounded-xl p-2 shadow-2xl overflow-hidden aspect-auto md:aspect-[4/3] flex flex-col">
+            <div className="w-full h-full bg-[#112117] rounded-lg overflow-hidden relative p-4 flex flex-col gap-4 md:block">
+              {/* Code Input Mockup - RELATIVE on mobile */}
+              <div className="relative md:absolute md:top-4 md:left-4 md:right-4">
                 <div className="bg-[#1b3224] border border-[#254632] p-3 rounded-lg">
                   <div className="flex items-center gap-2 mb-2">
                     <div className="w-3 h-3 rounded-full bg-red-500"></div>
@@ -174,8 +175,8 @@ const Hero = () => {
                   </pre>
                 </div>
               </div>
-              {/* AI Response Mockup */}
-              <div className="absolute bottom-4 left-4 right-4">
+              {/* AI Response Mockup - RELATIVE on mobile */}
+              <div className="relative md:absolute md:bottom-4 md:left-4 md:right-4">
                 <div
                   className="relative p-[1px] rounded-2xl rounded-tl-none overflow-hidden"
                   style={{
@@ -201,7 +202,7 @@ const Hero = () => {
                         </div>
                         <div>
                           <span className="text-sm font-bold text-white">
-                            CodeExplainAI
+                            Codexa
                           </span>
                           <div className="flex items-center gap-1">
                             <span className="w-1.5 h-1.5 rounded-full bg-[#36e27b] animate-pulse"></span>

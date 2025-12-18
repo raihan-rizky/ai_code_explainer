@@ -25,13 +25,14 @@ const Sidebar = ({
     >
       <div className="p-6 flex flex-col h-full">
         {/* Logo */}
-        <div className="flex items-center gap-3 mb-8">
-          <div className="flex items-center justify-center size-8 text-[#36e27b]">
-            <span className="material-symbols-outlined text-3xl">code</span>
-          </div>
-          <h2 className="text-xl font-bold tracking-tight text-white">
-            CodeExplainAI
-          </h2>
+        <div className="container flex items-center justify-center  w-60 h-10 mb-4 gap-3 ">
+          <img
+            src="../../public/images/logo-image.png"
+            width="150"
+            height="150"
+            alt="logo-image"
+            className="object-cover"
+          />
         </div>
 
         {/* New Chat Button */}

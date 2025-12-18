@@ -4,13 +4,14 @@ const Navbar = () => {
   return (
     <header className="sticky top-0 z-50 w-full backdrop-blur-md bg-[#112117]/80 border-b border-solid border-[#254632]">
       <div className="flex items-center justify-between px-6 py-4 max-w-7xl mx-auto w-full">
-        <div className="flex items-center gap-3">
-          <div className="flex items-center justify-center size-8 text-[#36e27b]">
-            <span className="material-symbols-outlined text-3xl">code</span>
-          </div>
-          <h2 className="text-lg font-bold leading-tight tracking-[-0.015em]">
-            CodeExplainAI
-          </h2>
+        <div className="flex items-center w-40 h-10 gap-3">
+          <img
+            src="../../public/images/logo-image.png"
+            width="130"
+            height="128"
+            alt="logo-image"
+            className="relative"
+          />
         </div>
         <nav className="hidden md:flex items-center gap-8">
           {["Features", "How it Works", "About"].map((item) => (

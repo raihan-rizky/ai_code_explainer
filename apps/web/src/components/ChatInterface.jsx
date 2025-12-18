@@ -503,8 +503,8 @@ const ChatInterface = () => {
                     ) : (
                       <div>
                         <p className="text-sm leading-relaxed text-white/90">
-                          Hello! I&apos;m <strong>CodeExplainAI</strong>. I can
-                          help you in two ways:
+                          Hello! I&apos;m <strong>Codexa</strong>. I can help
+                          you in two ways:
                         </p>
                         <ul className="mt-3 space-y-2 text-sm text-white/80">
                           <li className="flex items-start gap-2">
@@ -687,7 +687,7 @@ const ChatInterface = () => {
             <p className="text-center text-[10px] text-white/30 mt-3">
               {mode === "rag"
                 ? "RAG uses Supabase pgvector for semantic search"
-                : "CodeExplainAI uses Llama 3.3 70B"}
+                : "Codexa uses Llama 3.3 70B"}
             </p>
           </form>
         </div>
