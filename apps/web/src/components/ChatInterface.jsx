@@ -4,7 +4,10 @@ import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { FaCopy, FaCheck } from "react-icons/fa";
 import { getSessionKey } from "./actions/session_key";
-import { postJSON, getJSON } from "../lib/api";
+import { postJSON } from "../lib/api";
+import Sidebar from "./Sidebar/Sidebar";
+
+import ThreeDot from "react-loading-indicators/ThreeDot";
 
 const ChatInterface = () => {
   const [session, setSession] = useState(null);
@@ -34,7 +37,6 @@ const ChatInterface = () => {
       try {
         setLoadingSession(true);
         setError("");
-
         const session_key = getSessionKey();
         const data = await postJSON("/chat/session", { session_key });
         console.log(`data: ${data} , docs : ${data.docs}`);
@@ -379,161 +381,20 @@ const ChatInterface = () => {
 
   return (
     <div className="flex h-screen w-full bg-[#112117] text-white font-['Spline_Sans',sans-serif] overflow-hidden antialiased">
-      {/* Sidebar */}
-      <aside
-        className={`${
-          sidebarOpen ? "translate-x-0" : "-translate-x-full"
-        } md:translate-x-0 fixed md:relative z-40 w-72 bg-[#1b3224] border-r border-[#254632] flex flex-col h-full transition-transform duration-300`}
-      >
-        <div className="p-6 flex flex-col h-full">
-          {/* Logo */}
-          <div className="flex items-center gap-3 mb-8">
-            <div className="flex items-center justify-center size-8 text-[#36e27b]">
-              <span className="material-symbols-outlined text-3xl">code</span>
-            </div>
-            <h2 className="text-xl font-bold tracking-tight text-white">
-              CodeExplainAI
-            </h2>
-            {session?.title ? (
-              <p style={{ opacity: 0.7 }}>{session.title}</p>
-            ) : null}
-          </div>
-
-          {/* New Chat Button */}
-          <button
-            onClick={handleNewChat}
-            className="w-full flex items-center justify-center gap-2 bg-[#36e27b] text-[#122118] font-bold py-3 px-4 rounded-xl hover:opacity-90 transition-opacity mb-4 shadow-[0_0_15px_rgba(54,226,123,0.2)]"
-          >
-            <span className="material-symbols-outlined">add</span>
-            New Chat
-          </button>
-
-          {/* Upload Code Button */}
-          <input
-            type="file"
-            ref={fileInputRef}
-            onChange={handleFileUpload}
-            accept=".py,.js,.jsx,.cpp"
-            className="hidden"
-          />
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            disabled={isUploading}
-            className="w-full flex items-center justify-center gap-2 bg-[#254632] text-white font-bold py-3 px-4 rounded-xl hover:bg-[#2d5a3d] transition-colors mb-8 border border-[#254632] disabled:opacity-50"
-          >
-            <span className="material-symbols-outlined">
-              {isUploading ? "hourglass_empty" : "upload_file"}
-            </span>
-            {isUploading ? "Uploading..." : "Upload Code"}
-          </button>
-
-          {/* Uploaded Files */}
-          {uploadedFiles.length > 0 && (
-            <div className="mb-6">
-              <h3 className="text-xs font-semibold text-white/40 uppercase tracking-wider mb-3 px-2">
-                Uploaded Documents
-              </h3>
-              <nav className="flex flex-col gap-1">
-                {uploadedFiles.map((file, index) => (
-                  <div
-                    key={index}
-                    className="flex items-center gap-3 px-3 py-2 rounded-lg bg-white/5 border border-[#254632] text-white/90 text-sm group"
-                  >
-                    <span className="material-symbols-outlined text-[#36e27b] text-[18px]">
-                      description
-                    </span>
-                    <span className="truncate flex-1">{file.name}</span>
-                    <span className="text-xs text-white/40">
-                      {file.chunks} chunks
-                    </span>
-                    <button
-                      onClick={() => handleDeleteDocument(file.name)}
-                      className="opacity-0 group-hover:opacity-100 text-white/40 hover:text-red-400 transition-opacity"
-                      title="Delete document"
-                    >
-                      <span className="material-symbols-outlined text-[16px]">
-                        delete
-                      </span>
-                    </button>
-                  </div>
-                ))}
-              </nav>
-            </div>
-          )}
-
-          {/* Chat History */}
-          <div className="space-y-6 overflow-y-auto pr-2 flex-1">
-            <div>
-              <h3 className="text-xs font-semibold text-white/40 uppercase tracking-wider mb-3 px-2">
-                Chats
-              </h3>
-              <nav className="flex flex-col gap-1">
-                {chats.map((chat) => (
-                  <div
-                    key={chat.id}
-                    onClick={() => openChat(chat)}
-                    className={`flex items-center gap-3 px-3 py-2 rounded-lg text-left text-sm font-medium transition-colors group cursor-pointer ${
-                      activeChat?.id === chat.id
-                        ? "bg-white/10 text-white border border-[#36e27b]/30"
-                        : "hover:bg-white/5 text-white/60 hover:text-white"
-                    }`}
-                  >
-                    <span className="material-symbols-outlined text-[#36e27b] text-[18px]">
-                      chat_bubble
-                    </span>
-                    <span className="truncate flex-1">
-                      {chat.title || "Untitled"}
-                    </span>
-                    <button
-                      onClick={(e) => handleDeleteChat(chat.id, e)}
-                      className="opacity-0 group-hover:opacity-100 text-white/40 hover:text-red-400 transition-opacity"
-                      title="Delete chat"
-                    >
-                      <span className="material-symbols-outlined text-[16px]">
-                        delete
-                      </span>
-                    </button>
-                  </div>
-                ))}
-              </nav>
-            </div>
-
-            <div>
-              <h3 className="text-xs font-semibold text-white/40 uppercase tracking-wider mb-3 px-2">
-                Quick Actions
-              </h3>
-              <nav className="flex flex-col gap-1">
-                <Link
-                  to="/"
-                  className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-white/5 text-white/60 hover:text-white transition-colors text-sm font-medium"
-                >
-                  <span className="material-symbols-outlined text-[18px]">
-                    home
-                  </span>
-                  <span className="truncate">Back to Home</span>
-                </Link>
-              </nav>
-            </div>
-          </div>
-
-          {/* User Info 
-          <div className="mt-auto pt-4 border-t border-[#254632]">
-            <div className="flex items-center gap-3 p-2 rounded-lg hover:bg-white/5 cursor-pointer transition-colors">
-              <div className="w-9 h-9 rounded-full bg-gradient-to-br from-[#36e27b] to-[#1b3224] border border-[#254632]"></div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-bold text-white truncate">
-                  Developer
-                </p>
-                <p className="text-xs text-white/50 truncate">Free Plan</p>
-              </div>
-              <span className="material-symbols-outlined text-white/40 text-[20px]">
-                settings
-              </span>
-            </div>
-          </div>
-          */}
-        </div>
-      </aside>
+      <Sidebar
+        sidebarOpen={sidebarOpen}
+        session={session}
+        chats={chats}
+        activeChat={activeChat}
+        uploadedFiles={uploadedFiles}
+        isUploading={isUploading}
+        onNewChat={handleNewChat}
+        onFileUpload={handleFileUpload}
+        onDeleteDocument={handleDeleteDocument}
+        onDeleteChat={handleDeleteChat}
+        onOpenChat={openChat}
+        isLoading={loadingSession}
+      />
 
       {/* Overlay for mobile sidebar */}
       {sidebarOpen && (
@@ -557,7 +418,7 @@ const ChatInterface = () => {
             <div className="flex flex-col">
               <h1 className="text-base font-bold text-white flex items-center gap-2">
                 {mode === "rag" ? "Document Q&A" : "Code Explainer"}
-                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#36e27b]/10 text-[#36e27b] border border-[#36e27b]/20">
+                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#36e27b]/10 text-[#36e27b] border border-[#36e27b]/20 hidden md:block">
                   {mode === "rag" ? "RAG Mode" : "Llama 3.3 70B"}
                 </span>
               </h1>
@@ -621,7 +482,7 @@ const ChatInterface = () => {
         <div className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-10 scroll-smooth">
           <div className="max-w-3xl mx-auto flex flex-col gap-8">
             {/* Welcome Message */}
-            {messages.length === 0 && (
+            {chats.length === 0 && (
               <div className="flex gap-4">
                 <div className="flex-shrink-0 w-8 h-8 rounded-full bg-[#36e27b]/10 flex items-center justify-center text-[#36e27b] mt-1">
                   <span className="material-symbols-outlined text-lg">
@@ -630,30 +491,43 @@ const ChatInterface = () => {
                 </div>
                 <div className="flex flex-col gap-2">
                   <div className="bg-[#1b3224] border border-[#254632] rounded-2xl rounded-tl-none p-4 shadow-sm">
-                    <p className="text-sm leading-relaxed text-white/90">
-                      Hello! I&apos;m <strong>CodeExplainAI</strong>. I can help
-                      you in two ways:
-                    </p>
-                    <ul className="mt-3 space-y-2 text-sm text-white/80">
-                      <li className="flex items-start gap-2">
-                        <span className="material-symbols-outlined text-[#36e27b] text-sm mt-0.5">
-                          code
-                        </span>
-                        <span>
-                          <strong>Code Mode:</strong> Paste code and get instant
-                          explanations
-                        </span>
-                      </li>
-                      <li className="flex items-start gap-2">
-                        <span className="material-symbols-outlined text-[#36e27b] text-sm mt-0.5">
-                          description
-                        </span>
-                        <span>
-                          <strong>RAG Mode:</strong> Upload code files and ask
-                          questions about them
-                        </span>
-                      </li>
-                    </ul>
+                    {console.log("loading session", loadingSession)}
+                    {loadingSession ? (
+                      <ThreeDot
+                        variant="pulsate"
+                        color="#32cd32"
+                        size="small"
+                        text=""
+                        textColor=""
+                      />
+                    ) : (
+                      <div>
+                        <p className="text-sm leading-relaxed text-white/90">
+                          Hello! I&apos;m <strong>CodeExplainAI</strong>. I can
+                          help you in two ways:
+                        </p>
+                        <ul className="mt-3 space-y-2 text-sm text-white/80">
+                          <li className="flex items-start gap-2">
+                            <span className="material-symbols-outlined text-[#36e27b] text-sm mt-0.5">
+                              code
+                            </span>
+                            <span>
+                              <strong>Code Mode:</strong> Paste code and get
+                              instant explanations
+                            </span>
+                          </li>
+                          <li className="flex items-start gap-2">
+                            <span className="material-symbols-outlined text-[#36e27b] text-sm mt-0.5">
+                              description
+                            </span>
+                            <span>
+                              <strong>RAG Mode:</strong> Upload code files and
+                              ask questions about them
+                            </span>
+                          </li>
+                        </ul>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -691,7 +565,7 @@ const ChatInterface = () => {
                   }`}
                 >
                   <div
-                    className={`rounded-2xl p-4 shadow-sm ${
+                    className={` text-wrap rounded-2xl p-4 shadow-sm ${
                       message.role === "user"
                         ? "bg-[#36e27b] text-[#122118] rounded-tr-none"
                         : "bg-[#1b3224] border border-[#254632] rounded-tl-none"
@@ -702,7 +576,7 @@ const ChatInterface = () => {
                         {message.content}
                       </pre>
                     ) : message.content ? (
-                      <div className="prose prose-invert max-w-none text-sm text-white/90">
+                      <div className="text-wrap prose prose-invert max-w-none text-sm text-white/90">
                         <Markdown remarkPlugins={[remarkGfm]}>
                           {message.content}
                         </Markdown>

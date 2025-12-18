@@ -21,6 +21,10 @@ import {
   listDocuments,
   deleteDocument,
 } from "../services/rag.js";
+import { initCronJob } from "../services/cleanup.js";
+
+// Initialize Daily Cleanup Job
+initCronJob();
 
 // Configure multer for code file uploads
 const ALLOWED_EXTENSIONS = [".py", ".js", ".jsx", ".cpp"];
@@ -106,8 +110,24 @@ app.post("/api/explain-code", async (request, response) => {
     }
     const messages = [
       {
+        role: "system",
+        content: `You are a helpful code assistant. Explain the following code in simple terms:
+
+\`\`\`${language || ""}
+${code}
+\`\`\`
+
+Keep it concise and beginner-friendly, make sure to breackdown each syntax and explain what it does.`,
+      },
+      {
         role: "user",
-        content: `Please explain this code in simple terms:\n${code}`,
+        content: `Please explain this ${language || ""} code in simple terms:
+
+\`\`\`${language || ""}
+${code}
+\`\`\`
+
+Keep it concise and beginner-friendly.`,
       },
     ];
 
