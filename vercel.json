@@ -1,6 +1,15 @@
 {
-  "installCommand": "yarn install",
-  "buildCommand": "cd apps/web && yarn build",
+  "version": 2,
+  "buildCommand": "cd apps/web && npm run build",
   "outputDirectory": "apps/web/dist",
-  "framework": null
+  "framework": "vite",
+  "functions": {
+    "api/**/*.js": {
+      "maxDuration": 10
+    }
+  },
+  "rewrites": [
+    { "source": "/api/(.*)", "destination": "/api/$1" },
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
 }
