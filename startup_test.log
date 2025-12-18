@@ -1,0 +1,61 @@
+﻿
+============================================================
+≡ƒÜÇ SERVER STARTUP INITIALIZED
+============================================================
+[2025-12-18T21:19:54.374Z] Starting server...
+[ENV] ≡ƒôé Working directory: D:\main_project\build_ai-code_explainer\apps\server
+[ENV] Γ£ô Changed to server directory
+[dotenv@17.2.3] injecting env (5) from .env -- tip: ≡ƒæÑ sync secrets across teammates & machines: https://dotenvx.com/ops
+[ENV] Γ£ô Environment variables loaded from .env
+[DB] ≡ƒöî Initializing Supabase client...
+[DB] Γ£ô SUPABASE_URL configured
+[DB] Γ£ô SUPABASE_KEY configured
+[DB] Γ£ô Supabase client created successfully
+[RAG] ≡ƒºá Initializing RAG service...
+[RAG] ≡ƒöù Connecting to Nebius AI API...
+[RAG] Γ£ô Nebius client initialized
+[IMPORT] Γ£ô Core dependencies loaded (express, cors, helmet, rate-limit, multer)
+[IMPORT] Γ£ô Chat services loaded
+[IMPORT] Γ£ô RAG services loaded
+[IMPORT] Γ£ô Cleanup services loaded
+[STARTUP] ≡ƒôª All imports completed
+
+[STARTUP] ≡ƒòÉ Initializing scheduled tasks...
+[CRON] Daily cleanup job scheduled for 00:00
+[SERVER] Γ£ô Express app created
+
+[MIDDLEWARE] ≡ƒöº Setting up middleware...
+[MIDDLEWARE] Γ£ô Helmet (security headers) configured
+[MIDDLEWARE] Γ£ô CORS configured for: [ 'https://codexplain.up.railway.app' ]
+[MIDDLEWARE] Γ£ô Rate limiter configured (100 req/15min)
+[MIDDLEWARE] Γ£ô JSON body parser configured (10mb limit)
+
+[AI] ≡ƒñû Initializing AI client...
+[AI] Γ£ô NEBIUS_API_KEY configured
+[AI] Γ£ô OpenAI client created (Nebius endpoint)
+
+[ENDPOINTS] ≡ƒôí API endpoints registered:
+  POST /api/explain-code
+  POST /api/upload-code
+  POST /api/query-rag
+  DELETE /api/documents
+  POST /api/documents/clear
+  POST /api/chat/session
+  POST /api/chat/new
+  GET /api/chat/:chatId/messages
+  GET /api/list-documents
+  DELETE /api/chat/:chatId
+  POST /api/chat/send
+  POST /api/chat/send-stream
+
+[SERVER] ≡ƒîÉ Starting HTTP server...
+
+============================================================
+Γ£à SERVER STARTED SUCCESSFULLY
+============================================================
+[SERVER] ≡ƒÜÇ Server is running on port 3001
+[SERVER] ≡ƒöù Frontend URL: http://localhost:5173
+[SERVER] ΓÅ▒∩╕Å  Startup time: 1105ms
+[SERVER] ≡ƒôà Started at: 2025-12-18T21:19:55.477Z
+============================================================
+

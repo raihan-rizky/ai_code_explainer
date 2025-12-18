@@ -1,10 +1,14 @@
-import "./env_setup.js";
+import { startTime } from "./env_setup.js";
 import express from "express";
 import cors from "cors";
 import rateLimit from "express-rate-limit";
 import helmet from "helmet";
 import OpenAI from "openai";
 import multer from "multer";
+
+console.log(
+  "[IMPORT] ✓ Core dependencies loaded (express, cors, helmet, rate-limit, multer)"
+);
 import {
   ensureSession,
   getSessionWithChats,
@@ -14,6 +18,7 @@ import {
   addMessage,
   deleteChat,
 } from "../services/chat_services.js";
+console.log("[IMPORT] ✓ Chat services loaded");
 import {
   uploadDocument,
   queryRAG,
@@ -21,9 +26,13 @@ import {
   listDocuments,
   deleteDocument,
 } from "../services/rag.js";
+console.log("[IMPORT] ✓ RAG services loaded");
 import { initCronJob } from "../services/cleanup.js";
+console.log("[IMPORT] ✓ Cleanup services loaded");
+console.log("[STARTUP] 📦 All imports completed\n");
 
 // Initialize Daily Cleanup Job
+console.log("[STARTUP] 🕐 Initializing scheduled tasks...");
 initCronJob();
 
 // Configure multer for code file uploads
@@ -48,19 +57,28 @@ const upload = multer({
 });
 
 const app = express();
+console.log("[SERVER] ✓ Express app created");
 
+console.log("\n[MIDDLEWARE] 🔧 Setting up middleware...");
 // Security Middleware
+app.use((req, res, next) => {
+  if (req.method === "OPTIONS") return res.sendStatus(204);
+  next();
+});
+const corsOptions = {
+  origin: ["https://codexplain.up.railway.app"],
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+  credentials: false,
+};
 
 app.use(helmet());
-app.use(
-  cors({
-    origin: ["https://codexplain.up.railway.app"], // boleh tambah localhost untuk dev
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
-    credentials: true, // kalau kamu pakai cookie/session
-  })
-);
+console.log("[MIDDLEWARE] ✓ Helmet (security headers) configured");
 
+app.use(cors(corsOptions));
+console.log("[MIDDLEWARE] ✓ CORS configured for:", corsOptions.origin);
+
+app.options("/{*path}", cors(corsOptions)); // handle preflight for all routes
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, //15 menit window
   max: 100, // maksimal 100 request per IP adress
@@ -68,8 +86,10 @@ const limiter = rateLimit({
 });
 
 app.use(limiter);
+console.log("[MIDDLEWARE] ✓ Rate limiter configured (100 req/15min)");
 
 app.use(express.json({ limit: "10mb" }));
+console.log("[MIDDLEWARE] ✓ JSON body parser configured (10mb limit)");
 
 // Request Logger Middleware
 // Request Logger Middleware
@@ -92,12 +112,20 @@ app.use((req, res, next) => {
   next();
 });
 
+console.log("\n[AI] 🤖 Initializing AI client...");
 const API_KEY = process.env.NEBIUS_API_KEY;
+
+if (!API_KEY) {
+  console.error("[AI] ✗ NEBIUS_API_KEY is not set!");
+} else {
+  console.log("[AI] ✓ NEBIUS_API_KEY configured");
+}
 
 const client = new OpenAI({
   baseURL: "https://api.tokenfactory.nebius.com/v1/",
   apiKey: API_KEY,
 });
+console.log("[AI] ✓ OpenAI client created (Nebius endpoint)");
 
 // buat end point
 app.post("/api/explain-code", async (request, response) => {
@@ -466,7 +494,11 @@ app.post("/api/chat/send-stream", async (req, res) => {
     res.setHeader("Content-Type", "text/event-stream");
     res.setHeader("Cache-Control", "no-cache");
     res.setHeader("Connection", "keep-alive");
-    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader(
+      "Access-Control-Allow-Origin",
+      "https://codexplain.up.railway.app"
+    );
+    res.setHeader("Access-Control-Allow-Credentials", "true");
 
     const session = await ensureSession(session_key);
 
@@ -550,8 +582,31 @@ app.post("/api/chat/send-stream", async (req, res) => {
   }
 });
 
+console.log("\n[ENDPOINTS] 📡 API endpoints registered:");
+console.log("  POST /api/explain-code");
+console.log("  POST /api/upload-code");
+console.log("  POST /api/query-rag");
+console.log("  DELETE /api/documents");
+console.log("  POST /api/documents/clear");
+console.log("  POST /api/chat/session");
+console.log("  POST /api/chat/new");
+console.log("  GET /api/chat/:chatId/messages");
+console.log("  GET /api/list-documents");
+console.log("  DELETE /api/chat/:chatId");
+console.log("  POST /api/chat/send");
+console.log("  POST /api/chat/send-stream");
+
 const PORT = process.env.PORT || 3002;
 
-app.listen(PORT, () => {
-  console.log(`Server is running on ${process.env.FRONTEND_URL}:${PORT}`);
+console.log("\n[SERVER] 🌐 Starting HTTP server...");
+app.listen(PORT, "0.0.0.0", () => {
+  const startupDuration = Date.now() - startTime;
+  console.log("\n" + "=".repeat(60));
+  console.log("✅ SERVER STARTED SUCCESSFULLY");
+  console.log("=".repeat(60));
+  console.log(`[SERVER] 🚀 Server is running on port ${PORT}`);
+  console.log(`[SERVER] 🔗 Frontend URL: ${process.env.FRONTEND_URL}`);
+  console.log(`[SERVER] ⏱️  Startup time: ${startupDuration}ms`);
+  console.log(`[SERVER] 📅 Started at: ${new Date().toISOString()}`);
+  console.log("=".repeat(60) + "\n");
 });

@@ -3,13 +3,17 @@ import OpenAI from "openai";
 import { pipeline } from "@xenova/transformers";
 import { supabase } from "../db/supabase.js";
 
+console.log("[RAG] 🧠 Initializing RAG service...");
+
 // Initialize Nebius OpenAI-compatible client for embeddings and LLM
+console.log("[RAG] 🔗 Connecting to Nebius AI API...");
 const nebius = new OpenAI({
   baseURL: "https://api.tokenfactory.nebius.com/v1/",
   apiKey: process.env.NEBIUS_API_KEY,
   timeout: 60000, // 60 seconds
   maxRetries: 3,
 });
+console.log("[RAG] ✓ Nebius client initialized");
 
 /**
  * SQL to create the documents table in Supabase:
