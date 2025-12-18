@@ -54,22 +54,10 @@ const app = express();
 app.use(helmet());
 app.use(
   cors({
-    origin: (origin, callback) => {
-      const allowedOrigins = [
-        process.env.FRONTEND_URL,
-        "http://localhost:3000",
-        "http://localhost:5173",
-      ];
-      // Allow requests with no origin (like mobile apps or curl requests)
-      if (!origin) return callback(null, true);
-      if (allowedOrigins.indexOf(origin) !== -1) {
-        callback(null, true);
-      } else {
-        console.warn(`Blocked by CORS: ${origin}`);
-        callback(null, false); // Don't return error object to avoid leaking info, just block
-      }
-    },
-    credentials: true,
+    origin: ["https://codexplain.up.railway.app"], // boleh tambah localhost untuk dev
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+    credentials: true, // kalau kamu pakai cookie/session
   })
 );
 
