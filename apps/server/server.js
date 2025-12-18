@@ -97,10 +97,11 @@ app.use(helmet());
 console.log("[MIDDLEWARE] ✓ Helmet (security headers) configured");
 
 app.use(cors(corsOptions));
-app.options("*", cors(corsOptions));
+app.options(/.*/, cors(corsOptions));
+
 console.log("[MIDDLEWARE] ✓ CORS configured for:", corsOptions.origin);
 
-app.options("/{*path}", cors(corsOptions)); // handle preflight for all routes
+// handle preflight for all routes
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, //15 menit window
   max: 100, // maksimal 100 request per IP adress
