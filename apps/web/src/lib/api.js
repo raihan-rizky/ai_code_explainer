@@ -5,7 +5,6 @@ export async function postJSON(path, body) {
   const res = await fetch(`${API_BASE}${path}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    credentials: "include",
     body: JSON.stringify(body),
   });
 
@@ -18,7 +17,6 @@ export async function getJSON(path, body) {
   const res = await fetch(`${API_BASE}${path}`, {
     method: "GET",
     headers: { "Content-Type": "application/json" },
-    credentials: "include",
     body: JSON.stringify(body),
   });
   const data = await res.json().catch(() => ({}));
