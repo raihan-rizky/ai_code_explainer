@@ -6,6 +6,7 @@ export async function postJSON(path, body) {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
+    credentials: "false",
   });
 
   const data = await res.json().catch(() => ({}));
@@ -18,6 +19,7 @@ export async function getJSON(path, body) {
     method: "GET",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
+    credentials: "false",
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data?.error || "GET Method Failed");
