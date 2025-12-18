@@ -97,6 +97,7 @@ app.use(helmet());
 console.log("[MIDDLEWARE] ✓ Helmet (security headers) configured");
 
 app.use(cors(corsOptions));
+app.options("*", cors(corsOptions));
 console.log("[MIDDLEWARE] ✓ CORS configured for:", corsOptions.origin);
 
 app.options("/{*path}", cors(corsOptions)); // handle preflight for all routes
@@ -114,6 +115,9 @@ console.log("[MIDDLEWARE] ✓ JSON body parser configured (10mb limit)");
 
 // Request Logger Middleware
 // Request Logger Middleware
+app.get("/api/health", (req, res) => {
+  res.status(200).json({ ok: true });
+});
 app.use((req, res, next) => {
   console.log(`[REQUEST] ${req.method} ${req.url}`);
   if (
@@ -132,8 +136,6 @@ app.use((req, res, next) => {
   }
   next();
 });
-
-app.get("/health", (req, res) => res.status(200).send("OK"));
 
 console.log("\n[AI] 🤖 Initializing AI client...");
 const API_KEY = process.env.NEBIUS_API_KEY;
