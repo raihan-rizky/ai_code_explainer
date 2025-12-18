@@ -31,6 +31,23 @@ import { initCronJob } from "../services/cleanup.js";
 console.log("[IMPORT] ✓ Cleanup services loaded");
 console.log("[STARTUP] 📦 All imports completed\n");
 
+// ============ GLOBAL ERROR HANDLERS ============
+// Catch unhandled promise rejections
+process.on("unhandledRejection", (reason, promise) => {
+  console.error("[ERROR] ❌ Unhandled Rejection at:", promise);
+  console.error("[ERROR] Reason:", reason);
+});
+
+// Catch uncaught exceptions
+process.on("uncaughtException", (error) => {
+  console.error("[ERROR] ❌ Uncaught Exception:", error.message);
+  console.error("[ERROR] Stack:", error.stack);
+  // Give time to log before exiting
+  setTimeout(() => process.exit(1), 1000);
+});
+
+console.log("[STARTUP] ✓ Global error handlers registered");
+
 // Initialize Daily Cleanup Job
 console.log("[STARTUP] 🕐 Initializing scheduled tasks...");
 initCronJob();

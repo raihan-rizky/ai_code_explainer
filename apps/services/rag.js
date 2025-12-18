@@ -55,15 +55,47 @@ console.log("[RAG] ✓ Nebius client initialized");
  * $$;
  */
 
+// Cache for the embedding model - load once, reuse always
+let embeddingPipeline = null;
+
+/**
+ * Initialize the embedding pipeline (called once at startup)
+ */
+async function initEmbeddingModel() {
+  if (embeddingPipeline) return embeddingPipeline;
+
+  console.log(
+    "[EMBEDDING] 🔄 Loading Supabase/gte-small model (first time only)..."
+  );
+  const startLoad = Date.now();
+
+  try {
+    embeddingPipeline = await pipeline(
+      "feature-extraction",
+      "Supabase/gte-small"
+    );
+    console.log(
+      `[EMBEDDING] ✓ Model loaded successfully in ${Date.now() - startLoad}ms`
+    );
+    return embeddingPipeline;
+  } catch (error) {
+    console.error(
+      "[EMBEDDING] ✗ Failed to load embedding model:",
+      error.message
+    );
+    throw error;
+  }
+}
+
 /**
  * Generate embeddings using Supabase/gte-small model (384 dimensions)
  */
 async function getEmbedding(text) {
   console.log("[EMBEDDING] Generating embedding for text chunk...");
-  const generateEmbedding = await pipeline(
-    "feature-extraction",
-    "Supabase/gte-small"
-  );
+
+  // Use cached pipeline or initialize if not loaded
+  const generateEmbedding = await initEmbeddingModel();
+
   const output = await generateEmbedding(text, {
     pooling: "mean",
     normalize: true,
