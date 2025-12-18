@@ -565,5 +565,5 @@ app.post("/api/chat/send-stream", async (req, res) => {
 const PORT = process.env.PORT || 3002;
 
 app.listen(PORT, () => {
-  console.log(`Server is running on http://localhost:${PORT}`);
+  console.log(`Server is running on ${process.env.FRONTEND_URL}:${PORT}`);
 });
