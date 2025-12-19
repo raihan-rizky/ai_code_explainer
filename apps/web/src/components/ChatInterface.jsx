@@ -740,7 +740,7 @@ const ChatInterface = () => {
 
                                   {/* Terminal Body */}
                                   <div className="relative max-w-full overflow-x-auto bg-[#0a1510] p-4 font-mono">
-                                    <div className="absolute inset-0 bg-gradient-to-b from-white/[0.02] to-transparent" />
+                                    <div className="inset-0 bg-gradient-to-b from-white/[0.02] to-transparent" />
                                     <SyntaxHighlighter
                                       language={language}
                                       style={atelierDuneDark}
