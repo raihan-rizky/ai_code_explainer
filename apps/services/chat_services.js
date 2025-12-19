@@ -39,7 +39,27 @@ export async function getOrCreateSession(sessionKey) {
     .select("*")
     .single();
 
-  if (insErr) throw new Error(insErr.message);
+  // Handle race condition: if duplicate key error, fetch the existing session
+  if (insErr) {
+    // PostgreSQL error code for unique violation is '23505'
+    if (insErr.code === "23505" || insErr.message?.includes("duplicate key")) {
+      console.log(
+        "[getOrCreateSession] Race condition detected, fetching existing session..."
+      );
+
+      const { data: raceExisting, error: raceErr } = await supabase
+        .from("chat_sessions")
+        .select("*")
+        .eq("session_key", sessionKey)
+        .single();
+
+      if (raceErr) throw new Error(raceErr.message);
+      return raceExisting;
+    }
+
+    throw new Error(insErr.message);
+  }
+
   return created;
 }
 

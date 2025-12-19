@@ -480,9 +480,9 @@ const ChatInterface = () => {
 
         {/* Messages Area */}
         <div className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-10 scroll-smooth">
-          <div className="max-w-3xl mx-auto flex flex-col gap-8">
+          <div className="max-w-[20rem] mx-auto flex flex-col gap-8">
             {/* Welcome Message */}
-            {chats.length === 0 && (
+            {messages.length === 0 && (
               <div className="flex gap-4">
                 <div className="flex-shrink-0 w-8 h-8 rounded-full bg-[#36e27b]/10 flex items-center justify-center text-[#36e27b] mt-1">
                   <span className="material-symbols-outlined text-lg">
@@ -558,7 +558,7 @@ const ChatInterface = () => {
 
                 {/* Message bubble */}
                 <div
-                  className={`flex flex-col gap-2 ${
+                  className={`flex max-w-[75%] md:max-w-[100%] flex-col gap-2 ${
                     message.role === "user"
                       ? "items-end max-w-[80%]"
                       : "max-w-2xl"
@@ -576,8 +576,45 @@ const ChatInterface = () => {
                         {message.content}
                       </pre>
                     ) : message.content ? (
-                      <div className="text-wrap prose prose-invert max-w-none text-sm text-white/90">
-                        <Markdown remarkPlugins={[remarkGfm]}>
+                      <div className="whitespace-pre-wrap text-sm prose prose-invert lg:text-sm text-white/90">
+                        <Markdown
+                          remarkPlugins={[remarkGfm]}
+                          components={{
+                            pre: ({ children }) => (
+                              <div className="terminal-container my-3 rounded-lg overflow-hidden border border-[#36e27b]/20 shadow-[0_0_15px_rgba(54,226,123,0.1)] animate-fadeIn">
+                                {/* Terminal Header */}
+                                <div className="flex items-center gap-2 px-3 py-2 bg-[#0d1a12] border-b border-[#254632]">
+                                  <div className="flex gap-1.5">
+                                    <span className="w-3 h-3 rounded-full bg-[#ff5f56] shadow-[0_0_5px_#ff5f56]"></span>
+                                    <span className="w-3 h-3 rounded-full bg-[#ffbd2e] shadow-[0_0_5px_#ffbd2e]"></span>
+                                    <span className="w-3 h-3 rounded-full bg-[#27c93f] shadow-[0_0_5px_#27c93f]"></span>
+                                  </div>
+                                  <span className="ml-2 text-[10px] text-white/40 font-mono">
+                                    terminal
+                                  </span>
+                                </div>
+                                {/* Terminal Body */}
+                                <pre className="relative max-w-full overflow-x-auto bg-[#0a1510] p-4 text-[#36e27b] font-mono">
+                                  <div className="absolute inset-0 bg-gradient-to-b from-white/[0.02] to-transparent pointer-events-none"></div>
+                                  {children}
+                                </pre>
+                              </div>
+                            ),
+                            code: ({ inline, children }) =>
+                              inline ? (
+                                <code className="bg-[#36e27b]/10 text-[#36e27b] px-1.5 py-0.5 rounded border border-[#36e27b]/20 text-xs font-mono">
+                                  {children}
+                                </code>
+                              ) : (
+                                <code className="block whitespace-pre text-xs text-[#36e27b] relative">
+                                  <span className="inline-block animate-pulse">
+                                    {">"}
+                                  </span>
+                                  {children}
+                                </code>
+                              ),
+                          }}
+                        >
                           {message.content}
                         </Markdown>
                       </div>
@@ -664,7 +701,7 @@ const ChatInterface = () => {
                 accept=".py,.js,.jsx,.cpp"
                 className="hidden"
               />
-              <div className="flex items-center justify-between px-2 pb-1">
+              <div className="flex  items-center justify-between px-2 pb-1">
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
@@ -685,7 +722,7 @@ const ChatInterface = () => {
                   type="submit"
                   disabled={!inputValue.trim() || sending || !activeChat?.id}
                   onClick={onSend}
-                  className="flex items-center justify-center p-2 rounded-lg bg-[#36e27b] text-[#122118] hover:bg-opacity-90 transition-colors shadow-[0_0_10px_rgba(54,226,123,0.2)] disabled:opacity-50 disabled:cursor-not-allowed"
+                  className=" flex items-center justify-center p-2 rounded-lg bg-[#36e27b] text-[#122118] hover:bg-opacity-90 transition-colors shadow-[0_0_10px_rgba(54,226,123,0.2)] disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <span className="material-symbols-outlined text-[20px]">
                     arrow_upward
