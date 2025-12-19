@@ -256,13 +256,24 @@ export async function queryRAG(queryText, topK = 5) {
     messages: [
       {
         role: "system",
-        content: `You are a helpful assistant that answers questions based on the provided context. 
-Use the context to answer the user's question accurately. 
-If the answer is not in the context, say so.
-Always cite your sources by mentioning ${uploadedDocuments
-          .filter((doc) => doc && doc.filename)
-          .map((doc, i) => `Source ${i + 1}: ${doc.filename}`)
-          .join(", ")} when referencing information.`,
+        content: `You are a context-aware assistant.
+
+Your task:
+- Answer the user's question using ONLY the information provided in the Context.
+- Do NOT use external knowledge or assumptions.
+
+Rules:
+- If the answer cannot be found in the Context, respond exactly with:
+  "Informasi tersebut tidak tersedia dalam konteks yang diberikan."
+- Do NOT guess or hallucinate.
+- Keep answers clear, concise, and factual.
+- When answering, ALWAYS cite the source(s) explicitly using the format:
+  ${uploadedDocuments
+    .filter((doc) => doc && doc.filename)
+    .map((doc, i) => `Source ${i + 1}: ${doc.filename}`)
+    .join(", ")}
+
+Do not mention sources that are not relevant to the answer.`,
       },
       {
         role: "user",

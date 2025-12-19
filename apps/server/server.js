@@ -156,13 +156,18 @@ app.post("/api/explain-code", async (request, response) => {
     const messages = [
       {
         role: "system",
-        content: `You are a helpful code assistant. Explain the following code in simple terms:
+        content: `You are a helpful code assistant.
 
-\`\`\`${language || ""}
-${code}
-\`\`\`
+Your ONLY responsibility is to explain programming-related code
+(such as JavaScript, Python, C++, etc.) in simple, beginner-friendly language.
 
-Keep it concise and beginner-friendly, make sure to breackdown each syntax and explain what it does.`,
+Rules:
+- Only answer questions related to programming or source code.
+- If the user asks about anything outside programming or code,
+  respond exactly with: "itu di luar informasi saya".
+- Do NOT add extra explanations when rejecting.
+- When explaining code, break down each syntax and explain what it does.
+- Keep explanations concise, clear, and beginner-friendly.`,
       },
       {
         role: "user",
@@ -171,8 +176,7 @@ Keep it concise and beginner-friendly, make sure to breackdown each syntax and e
 \`\`\`${language || ""}
 ${code}
 \`\`\`
-
-Keep it concise and beginner-friendly.`,
+`,
       },
     ];
 
