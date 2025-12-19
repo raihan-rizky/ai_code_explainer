@@ -93,10 +93,18 @@ async function initEmbeddingModel() {
 async function getEmbedding(text) {
   console.log("[EMBEDDING] Generating embedding for text chunk...");
 
+  //smarter chunking strategy : code-aware chunking
+  const splitter = new RecursiveCharacterTextSplitter({
+    chunkSize: 1000,
+    chunkOverlap: 200,
+  });
+
+  const chunks = await splitter.splitText(text);
+
   // Use cached pipeline or initialize if not loaded
   const generateEmbedding = await initEmbeddingModel();
 
-  const output = await generateEmbedding(text, {
+  const output = await generateEmbedding(chunks, {
     pooling: "mean",
     normalize: true,
   });
