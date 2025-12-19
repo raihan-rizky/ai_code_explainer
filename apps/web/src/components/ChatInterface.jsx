@@ -480,7 +480,7 @@ const ChatInterface = () => {
 
         {/* Messages Area */}
         <div className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-10 scroll-smooth">
-          <div className="max-w-[20rem] mx-auto flex flex-col gap-8">
+          <div className="max-w-[20rem] md:max-w-[30rem] lg:max-w-[40rem] xl:max-w-[50rem]  mx-auto flex flex-col gap-8">
             {/* Welcome Message */}
             {messages.length === 0 && (
               <div className="flex gap-4">
@@ -558,7 +558,7 @@ const ChatInterface = () => {
 
                 {/* Message bubble */}
                 <div
-                  className={`flex max-w-[75%] md:max-w-[100%] flex-col gap-2 ${
+                  className={`flex max-w-[70%] md:max-w-[80%] xl:max-w-[88%] flex-col gap-2 ${
                     message.role === "user"
                       ? "items-end max-w-[80%]"
                       : "max-w-2xl"
