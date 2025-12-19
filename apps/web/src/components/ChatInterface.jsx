@@ -416,13 +416,13 @@ const ChatInterface = () => {
               <span className="material-symbols-outlined">menu</span>
             </button>
             <div className="flex flex-col">
-              <h1 className="text-base text-sm hidden md:block lg:text-xl font-bold text-white flex items-center gap-2">
+              <h1 className="text-base min-sm hidden md:flex font-bold text-white items-center gap-2">
                 {mode === "rag" ? "Document Q&A" : "Code Explainer"}
                 <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#36e27b]/10 text-[#36e27b] border border-[#36e27b]/20 hidden md:block">
                   {mode === "rag" ? "RAG Mode" : "Llama 3.3 70B"}
                 </span>
               </h1>
-              <p className="text-xs hidden md:block lg:text-sm text-white/50">
+              <p className="text-xs hidden md:block text-white/50">
                 {messages.length} messages
               </p>
             </div>
