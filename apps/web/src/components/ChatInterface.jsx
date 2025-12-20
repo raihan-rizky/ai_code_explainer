@@ -32,8 +32,8 @@ const ChatInterface = () => {
   const [isCreatingChat, setIsCreatingChat] = useState(false);
   const [mode, setMode] = useState("code"); // "code" or "rag"
   const [title, setTitle] = useState([]);
-  console.log("uploadedFiles", uploadedFiles);
-  console.log("title", title);
+  //console.log("uploadedFiles", uploadedFiles);
+  //console.log("title", title);
 
   // Helper to show error popup with retry action
   const showError = (message, retryFn = null) => {
@@ -50,8 +50,8 @@ const ChatInterface = () => {
       setShowErrorPopup(false);
       const session_key = getSessionKey();
       const data = await postJSON("/chat/session", { session_key });
-      console.log(`data: ${data} , docs : ${data.docs}`);
-      console.log(typeof data.chats.title);
+      //console.log(`data: ${data} , docs : ${data.docs}`);
+      //console.log(typeof data.chats.title);
       setSession(data.session);
       setChats(data.chats || []);
       setActiveChat(data.activeChat);
@@ -70,8 +70,8 @@ const ChatInterface = () => {
           title: doc.title,
         })),
       ]);
-      console.log(data);
-      console.log("data_docs", data.docs);
+      //console.log(data);
+      //console.log("data_docs", data.docs);
     } catch (e) {
       showError(e.message, loadSession);
     } finally {
@@ -728,11 +728,11 @@ const ChatInterface = () => {
                               const codeString = extractText(
                                 codeEl.props.children
                               );
-                              console.log("codeString :", codeString);
-                              console.log(
-                                "type of codeString :",
-                                typeof codeString
-                              );
+                              //console.log("codeString :", codeString);
+                              //console.log(
+                              //  "type of codeString :",
+                              //  typeof codeString
+                              //);
 
                               const className = codeEl.props.className || "";
                               const match = /language-([a-z0-9-]+)/i.exec(
