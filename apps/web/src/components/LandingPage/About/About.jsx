@@ -6,7 +6,7 @@ const About = () => {
     >
       <div className="max-w-7xl mx-auto">
         {/* Mission Statement */}
-        <div className="text-center mb-16">
+        <div data-aos="fade-up" className="text-center mb-16">
           <div
             className="relative inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[#1b3224] mb-6 overflow-hidden"
             style={{ animation: "badge-pulse 3s ease-in-out infinite" }}
@@ -55,7 +55,10 @@ const About = () => {
 
         {/* My Story */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 mb-16">
-          <div className="flex flex-col text-justify justify-center">
+          <div
+            data-aos="fade-right"
+            className="flex flex-col text-justify justify-center"
+          >
             <h3 className="text-2xl md:text-3xl font-bold text-white mb-6">
               My Story
             </h3>
@@ -63,7 +66,7 @@ const About = () => {
               <p>
                 I started Codexa because understanding code is hard. Whether you
                 {"'"}re a student learning to program, a developer joining a new
-                team, or someone trying to understand a complex codebase—you
+                team, or someone trying to understand a complex codebase, you
                 deserve clarity.
               </p>
               <p>
@@ -82,14 +85,18 @@ const About = () => {
               <p>
                 Today, Codexa is building the platform where code understanding
                 is no longer a barrier. {"I'm"} creating a world where learning
-                from the best is no longer a privilege—
+                from the best is no longer a privilege,
                 {"it's"} a reality for everyone.
               </p>
             </div>
           </div>
 
           {/* Founder Card */}
-          <div className="flex items-center justify-center">
+          <div
+            data-aos="fade-left"
+            data-aos-delay="100"
+            className="flex items-center justify-center"
+          >
             <div className="relative group">
               {/* Animated Glow Effect */}
               <div
@@ -124,14 +131,16 @@ const About = () => {
                       }}
                     >
                       <div
-                        className="w-full h-full rounded-full bg-[#112117] flex items-center justify-center"
+                        className="w-full h-full rounded-full overflow-hidden"
                         style={{
                           animation: "pulse-glow 2s ease-in-out infinite",
                         }}
                       >
-                        <span className="material-symbols-outlined text-[#36e27b] text-6xl">
-                          person
-                        </span>
+                        <img
+                          src="images/raihan_foto.JPG"
+                          alt="Raihan Rizki Dwiputra"
+                          className="w-full h-full object-cover"
+                        />
                       </div>
                       {/* Online indicator */}
                       <div className="absolute bottom-2 right-2 w-4 h-4 rounded-full bg-[#36e27b] border-2 border-[#112117] animate-pulse"></div>
@@ -268,7 +277,11 @@ const About = () => {
 
         {/* Values/Principles */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="p-6 rounded-2xl bg-[#112117] border border-[#254632] text-center">
+          <div
+            data-aos="fade-up"
+            data-aos-delay="100"
+            className="p-6 rounded-2xl bg-[#112117] border border-[#254632] text-center"
+          >
             <div className="w-12 h-12 rounded-full bg-[#36e27b]/10 flex items-center justify-center text-[#36e27b] mx-auto mb-4">
               <span className="material-symbols-outlined">
                 accessibility_new
@@ -282,7 +295,11 @@ const About = () => {
               experience level.
             </p>
           </div>
-          <div className="p-6 rounded-2xl bg-[#112117] border border-[#254632] text-center">
+          <div
+            data-aos="fade-up"
+            data-aos-delay="200"
+            className="p-6 rounded-2xl bg-[#112117] border border-[#254632] text-center"
+          >
             <div className="w-12 h-12 rounded-full bg-[#36e27b]/10 flex items-center justify-center text-[#36e27b] mx-auto mb-4">
               <span className="material-symbols-outlined">psychology_alt</span>
             </div>
@@ -294,7 +311,11 @@ const About = () => {
               explanations.
             </p>
           </div>
-          <div className="p-6 rounded-2xl bg-[#112117] border border-[#254632] text-center">
+          <div
+            data-aos="fade-up"
+            data-aos-delay="300"
+            className="p-6 rounded-2xl bg-[#112117] border border-[#254632] text-center"
+          >
             <div className="w-12 h-12 rounded-full bg-[#36e27b]/10 flex items-center justify-center text-[#36e27b] mx-auto mb-4">
               <span className="material-symbols-outlined">rocket_launch</span>
             </div>

@@ -5,7 +5,10 @@ const Features = () => {
       className="w-full px-4 py-16 bg-[#1b3224]/30 border-y border-[#254632]"
     >
       <div className="max-w-7xl mx-auto flex flex-col gap-12">
-        <div className="flex flex-col gap-4 text-center md:text-left max-w-3xl">
+        <div
+          data-aos="fade-up"
+          className="flex flex-col gap-4 text-center md:text-left max-w-3xl"
+        >
           <h2 className="text-3xl md:text-4xl font-black leading-tight tracking-tight text-white">
             Supercharge Your Code Understanding
           </h2>
@@ -16,7 +19,11 @@ const Features = () => {
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {/* Feature 1 */}
-          <div className="group flex flex-col gap-4 p-6 rounded-2xl bg-[#1b3224] border border-[#254632] hover:border-[#36e27b]/50 transition-colors duration-300">
+          <div
+            data-aos="fade-up"
+            data-aos-delay="100"
+            className="group flex flex-col gap-4 p-6 rounded-2xl bg-[#1b3224] border border-[#254632] hover:border-[#36e27b]/50 transition-colors duration-300"
+          >
             <div className="w-12 h-12 rounded-full bg-[#36e27b]/10 flex items-center justify-center text-[#36e27b] group-hover:scale-110 transition-transform">
               <span className="material-symbols-outlined">flash_on</span>
             </div>
@@ -31,7 +38,11 @@ const Features = () => {
             </div>
           </div>
           {/* Feature 2 */}
-          <div className="group flex flex-col gap-4 p-6 rounded-2xl bg-[#1b3224] border border-[#254632] hover:border-[#36e27b]/50 transition-colors duration-300">
+          <div
+            data-aos="fade-up"
+            data-aos-delay="200"
+            className="group flex flex-col gap-4 p-6 rounded-2xl bg-[#1b3224] border border-[#254632] hover:border-[#36e27b]/50 transition-colors duration-300"
+          >
             <div className="w-12 h-12 rounded-full bg-[#36e27b]/10 flex items-center justify-center text-[#36e27b] group-hover:scale-110 transition-transform">
               <span className="material-symbols-outlined">code</span>
             </div>
@@ -46,7 +57,11 @@ const Features = () => {
             </div>
           </div>
           {/* Feature 3 */}
-          <div className="group flex flex-col gap-4 p-6 rounded-2xl bg-[#1b3224] border border-[#254632] hover:border-[#36e27b]/50 transition-colors duration-300">
+          <div
+            data-aos="fade-up"
+            data-aos-delay="300"
+            className="group flex flex-col gap-4 p-6 rounded-2xl bg-[#1b3224] border border-[#254632] hover:border-[#36e27b]/50 transition-colors duration-300"
+          >
             <div className="w-12 h-12 rounded-full bg-[#36e27b]/10 flex items-center justify-center text-[#36e27b] group-hover:scale-110 transition-transform">
               <span className="material-symbols-outlined">school</span>
             </div>

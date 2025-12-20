@@ -533,27 +533,21 @@ const ChatInterface = () => {
           </div>
           <div className="flex items-center gap-4">
             {/* Mode Toggle with Animation */}
-            <div className="relative flex items-center gap-1 bg-[#1b3224] rounded-lg p-1 border border-[#254632]">
+            <div className="relative flex items-center gap-1 bg-[#1b3224] rounded-lg p-1 pr-2 border border-[#254632] overflow-hidden">
               {/* Sliding Background Indicator */}
               <div
-                className={`absolute top-1 bottom-1 w-[calc(50%-2px)] rounded-md transition-all duration-300 ease-out ${
-                  mode === "code" ? "left-1" : "left-[calc(50%+1px)]"
+                className={`absolute  top-1 bottom-1  rounded-md transition-all duration-300 ease-out z-10 ${
+                  mode === "code" ? "left-1 " : "left-[calc(50%+1px)] "
                 } ${
                   mode === "rag"
-                    ? "bg-gradient-to-r from-[#36e27b] to-[#22d3ee] shadow-[0_0_15px_rgba(54,226,123,0.5)]"
-                    : "bg-[#36e27b]"
+                    ? "bg-gradient-to-r from-[#36e27b] to-[#22d3ee]"
+                    : "bg-[#36e27b] w-[50%]"
                 }`}
-                style={{
-                  animation:
-                    mode === "rag"
-                      ? "pulse-glow 2s ease-in-out infinite"
-                      : "none",
-                }}
               ></div>
 
               <button
                 onClick={() => setMode("code")}
-                className={`relative z-10 px-3 py-1.5 rounded-md text-xs font-bold transition-all duration-300 ${
+                className={`relative z-20 px-4 py-1.5 rounded-md text-xs font-bold transition-all duration-300 ${
                   mode === "code"
                     ? "text-[#122118] scale-105"
                     : "text-white/60 hover:text-white"
@@ -569,13 +563,30 @@ const ChatInterface = () => {
 
               <button
                 onClick={() => setMode("rag")}
-                className={`relative z-10 px-3 py-1.5 rounded-md text-xs font-bold transition-all duration-300 ${
-                  mode === "rag"
-                    ? "text-[#122118] scale-105"
-                    : "text-white/60 hover:text-white"
-                }`}
+                className="relative z-20 rounded-md text-xs font-bold transition-all  duration-300 overflow-hidden"
               >
-                <span className="flex items-center gap-1">
+                {/* Animated Border for RAG mode - only on this button */}
+                {mode === "rag" && (
+                  <>
+                    <div
+                      className="absolute inset-0 rounded-md"
+                      style={{
+                        background:
+                          "linear-gradient(90deg, #36e27b, #22d3ee, #a855f7, #36e27b)",
+                        backgroundSize: "300% 100%",
+                        animation: "border-flow 4s linear infinite",
+                      }}
+                    />
+                    <div className="absolute inset-[4px]  rounded-md bg-gradient-to-r from-[#36e27b] to-[#22d3ee]" />
+                  </>
+                )}
+                <span
+                  className={`relative z-10 flex items-center gap-1 px-4  py-1.5 ${
+                    mode === "rag"
+                      ? "text-[#122118] scale-105 "
+                      : "text-white/60 hover:text-white"
+                  }`}
+                >
                   <span
                     className={`material-symbols-outlined text-[14px] ${
                       mode === "rag" ? "animate-pulse" : ""
@@ -586,6 +597,14 @@ const ChatInterface = () => {
                   RAG
                 </span>
               </button>
+
+              {/* Animation keyframes */}
+              <style>{`
+                @keyframes border-flow {
+                  0% { background-position: 0% 50%; }
+                  100% { background-position: 300% 50%; }
+                }
+              `}</style>
             </div>
             <button
               onClick={handleNewChat}

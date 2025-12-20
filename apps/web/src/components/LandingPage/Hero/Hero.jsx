@@ -89,7 +89,7 @@ const Hero = () => {
       <div className="flex flex-col-reverse lg:flex-row items-center gap-10 lg:gap-16 relative z-10">
         {/* Hero Text */}
         <div className="flex flex-col gap-6 flex-1 text-center lg:text-left items-center lg:items-start">
-          <div className="flex flex-col gap-4">
+          <div data-aos="fade-up" className="flex flex-col gap-4">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#1b3224] border border-[#254632] w-fit mx-auto lg:mx-0">
               <span className="material-symbols-outlined text-[#36e27b] text-sm">
                 auto_awesome
@@ -105,7 +105,7 @@ const Hero = () => {
                 backgroundImage:
                   "linear-gradient(90deg, #36e27b,  #22d3ee, #36e27b)",
                 backgroundSize: "300% 100%",
-                animation: "gradient-shift 6s ease infinite",
+                animation: "gradient-shift 4s ease infinite",
               }}
             >
               Understand Any Code in Seconds.
@@ -113,16 +113,22 @@ const Hero = () => {
             <style>{`
               @keyframes gradient-shift {
                 0% { background-position: 0% 50%; }
-                50% { background-position: 100% 50%; }
-                100% { background-position: 0% 50%; }
+                50% { background-position: 50% 50%; }
+                100% { background-position: 100% 50%; }
               }
             `}</style>
             <h2 className="text-base md:text-lg font-normal text-white/70 max-w-xl mx-auto lg:mx-0">
-              Type your code and get clear, instant explanations—powered by AI.
+              Type your code and receive clear, instant explanations powered by
+              AI, designed to break down complex logic into simple and
+              understandable insights.
             </h2>
           </div>
 
-          <div className="flex flex-col sm:flex-row gap-4 max-w-16px sm:w-auto">
+          <div
+            data-aos="fade-up"
+            data-aos-delay="100"
+            className="flex flex-col sm:flex-row gap-4 max-w-16px sm:w-auto"
+          >
             {/* Animated Border Button */}
             <Link
               to="/app"
@@ -153,7 +159,11 @@ const Hero = () => {
         </div>
 
         {/* Hero Visual / Mockup */}
-        <div className="w-full flex-1 relative">
+        <div
+          data-aos="fade-left"
+          data-aos-delay="200"
+          className="w-full flex-1 relative"
+        >
           {/* Glow Effect */}
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[300px] h-[300px] bg-[#36e27b]/20 blur-[100px] rounded-full z-10"></div>
           {/* RESPONSIVE FIX: flex-col on mobile, aspect ratio on md */}

@@ -2,7 +2,9 @@ import { Suspense, lazy } from "react";
 import Navbar from "./Navbar/Navbar";
 import Footer from "./Footer/Footer";
 import SectionSkeleton from "../ui/SectionSkeleton";
-
+import AOS from "aos";
+import { useEffect } from "react";
+import "aos/dist/aos.css";
 // Lazy load heavy sections
 const Hero = lazy(() => import("./Hero/Hero"));
 const Features = lazy(() => import("./Features/Features"));
@@ -11,8 +13,20 @@ const About = lazy(() => import("./About/About"));
 const CTA = lazy(() => import("./CTA/CTA"));
 
 const LandingPage = () => {
+  useEffect(() => {
+    const initAOS = async () => {
+      await import("aos");
+      AOS.init({
+        duration: 1000,
+        easing: "ease",
+        once: true,
+        anchorPlacement: "top-bottom",
+      });
+    };
+    initAOS();
+  }, []);
   return (
-    <div className="relative flex min-h-screen w-full flex-col bg-[#112117] text-white font-['Spline_Sans',sans-serif] overflow-x-hidden antialiased">
+    <div className="relative overflow-hidden flex min-h-screen w-full flex-col bg-[#112117] text-white font-['Spline_Sans',sans-serif] overflow-x-hidden antialiased">
       {/* Top Navigation */}
       <Navbar />
 

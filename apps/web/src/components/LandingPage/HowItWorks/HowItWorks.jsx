@@ -3,7 +3,7 @@ const HowItWorks = () => {
     <section id="how-it-works" className="w-full px-4 py-20 max-w-7xl">
       <div className="flex flex-col items-center gap-12">
         {/* Section Header */}
-        <div className="text-center max-w-2xl">
+        <div data-aos="fade-up" className="text-center max-w-2xl">
           {/* Mission Statement */}
           <div
             className="relative inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[#1b3224] mb-6 overflow-hidden"
@@ -54,7 +54,11 @@ const HowItWorks = () => {
         {/* Steps */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 w-full">
           {/* Step 1 */}
-          <div className="relative group">
+          <div
+            data-aos="fade-up"
+            data-aos-delay="100"
+            className="relative group"
+          >
             <div className="absolute -top-4 left-1/2 -translate-x-1/2 md:-left-4 md:translate-x-0 w-10 h-10 rounded-full bg-[#36e27b] flex items-center justify-center text-[#112117] font-bold text-lg shadow-[0_0_20px_rgba(54,226,123,0.4)] z-10">
               1
             </div>
@@ -90,7 +94,11 @@ const HowItWorks = () => {
           </div>
 
           {/* Step 2 */}
-          <div className="relative group">
+          <div
+            data-aos="fade-up"
+            data-aos-delay="200"
+            className="relative group"
+          >
             <div className="absolute -top-4 left-1/2 -translate-x-1/2 md:-left-4 md:translate-x-0 w-10 h-10 rounded-full bg-[#36e27b] flex items-center justify-center text-[#112117] font-bold text-lg shadow-[0_0_20px_rgba(54,226,123,0.4)] z-10">
               2
             </div>
@@ -120,7 +128,11 @@ const HowItWorks = () => {
           </div>
 
           {/* Step 3 */}
-          <div className="relative group">
+          <div
+            data-aos="fade-up"
+            data-aos-delay="300"
+            className="relative group"
+          >
             <div className="absolute -top-4 left-1/2 -translate-x-1/2 md:-left-4 md:translate-x-0 w-10 h-10 rounded-full bg-[#36e27b] flex items-center justify-center text-[#112117] font-bold text-lg shadow-[0_0_20px_rgba(54,226,123,0.4)] z-10">
               3
             </div>
@@ -145,7 +157,11 @@ const HowItWorks = () => {
         </div>
 
         {/* Feature Highlights */}
-        <div className="w-full p-6 rounded-2xl bg-gradient-to-r from-[#1b3224] via-[#112117] to-[#1b3224] border border-[#254632]">
+        <div
+          data-aos="fade-up"
+          data-aos-delay="400"
+          className="w-full p-6 rounded-2xl bg-gradient-to-r from-[#1b3224] via-[#112117] to-[#1b3224] border border-[#254632]"
+        >
           <div className="flex flex-col md:flex-row items-center justify-center gap-8 md:gap-16">
             <div className="flex items-center gap-3">
               <span className="material-symbols-outlined text-[#36e27b]">

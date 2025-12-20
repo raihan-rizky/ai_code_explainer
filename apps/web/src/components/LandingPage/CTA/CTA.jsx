@@ -4,7 +4,10 @@ const CTA = () => {
   return (
     <section className="w-full px-4 py-20 bg-[#112117] relative overflow-hidden">
       <div className="absolute inset-0 bg-gradient-to-t from-[#1b3224] to-transparent opacity-50 pointer-events-none"></div>
-      <div className="max-w-3xl mx-auto text-center relative z-10 flex flex-col items-center gap-6">
+      <div
+        data-aos="zoom-in"
+        className="max-w-3xl mx-auto text-center relative z-10 flex flex-col items-center gap-6"
+      >
         <h2 className="text-3xl md:text-5xl font-black text-white tracking-tight">
           Ready to understand code faster?
         </h2>
