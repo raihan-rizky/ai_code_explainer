@@ -73,8 +73,10 @@ const HowItWorks = () => {
               </h3>
               <p className="text-white/60 leading-relaxed">
                 Drag & drop or click to upload any coding file—
-                <span className="text-[#36e27b]">.py, .js, .jsx, .cpp</span>,
-                and more. No size limits, no formatting required.
+                <span className="text-[#36e27b]">
+                  .py, .js, .jsx, .cpp, .go, .rs
+                </span>
+                , and more. No size limits, no formatting required.
               </p>
               <div className="mt-4 flex flex-wrap gap-2">
                 <span className="px-2 py-1 rounded-md bg-[#254632] text-xs text-white/80">

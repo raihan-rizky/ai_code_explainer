@@ -53,7 +53,7 @@ console.log("[STARTUP] 🕐 Initializing scheduled tasks...");
 initCronJob();
 
 // Configure multer for code file uploads
-const ALLOWED_EXTENSIONS = [".py", ".js", ".jsx", ".cpp"];
+const ALLOWED_EXTENSIONS = [".py", ".js", ".jsx", ".cpp", ".go", ".rs"];
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -66,7 +66,9 @@ const upload = multer({
       cb(null, true);
     } else {
       cb(
-        new Error("Only code files (.py, .js, .jsx, .cpp) are allowed"),
+        new Error(
+          "Only code files (.py, .js, .jsx, .cpp, .go, .rs) are allowed"
+        ),
         false
       );
     }

@@ -245,9 +245,9 @@ const ChatInterface = () => {
     const file = e.target.files?.[0];
     if (!file) return;
     const ext = file.name.toLowerCase().slice(file.name.lastIndexOf("."));
-    const allowedExtensions = [".py", ".js", ".jsx", ".cpp"];
+    const allowedExtensions = [".py", ".js", ".jsx", ".cpp", ".go", ".rs"];
     if (!allowedExtensions.includes(ext)) {
-      alert("Please upload a code file (.py, .js, .jsx, .cpp)");
+      alert("Please upload a code file (.py, .js, .jsx, .cpp, .go, .rs)");
       return;
     }
 
@@ -890,7 +890,7 @@ const ChatInterface = () => {
                 type="file"
                 ref={fileInputRef}
                 onChange={handleFileUpload}
-                accept=".py,.js,.jsx,.cpp"
+                accept=".py,.js,.jsx,.cpp,.go,.rs"
                 className="hidden"
               />
               <div className="flex  items-center justify-between px-2 pb-1">

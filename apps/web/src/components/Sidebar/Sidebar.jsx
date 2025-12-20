@@ -122,7 +122,7 @@ const Sidebar = ({
             type="file"
             ref={fileInputRef}
             onChange={onFileUpload}
-            accept=".py,.js,.jsx,.cpp"
+            accept=".py,.js,.jsx,.cpp,.go,.rs"
             className="hidden"
           />
           <button
