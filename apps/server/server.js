@@ -232,7 +232,7 @@ app.post("/api/upload-code", upload.single("code"), async (req, res) => {
     if (result.success == false) {
       console.log("result false", result);
       return res.status(500).json({
-        error: `${req.file.originalname} already exists in the database`,
+        error: `${req.file.originalname} already exists in the database, please upload another file`,
       });
     }
 

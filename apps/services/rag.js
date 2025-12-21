@@ -130,9 +130,13 @@ export function parseCodeFile(buffer) {
  */
 export async function splitText(text) {
   console.log("[SPLITTING] Splitting text into chunks...");
+  //buat motong text menjadi chunk (potongan kecil dengan smart)
+
+  //chunk size berarti ukuran potongannya, chunk overlap berarti potongan yang saling berhubungan
+  //  chunk overlap berarti mundur 300 karakter untuk memastikan konteks yang terhubung
   const splitter = new RecursiveCharacterTextSplitter({
-    chunkSize: 1000,
-    chunkOverlap: 200,
+    chunkSize: 1500,
+    chunkOverlap: 300,
   });
   const chunks = await splitter.splitText(text);
   console.log(`[SPLITTING] ✓ Text split into ${chunks.length} chunks`);
