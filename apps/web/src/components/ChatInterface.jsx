@@ -266,13 +266,20 @@ const ChatInterface = () => {
           body: formData,
         }
       );
-      console.log(response);
 
       if (!response.ok) {
-        throw new Error("Failed to upload code file");
+        const errorData = await response.json().catch(() => null);
+        const errorMessage =
+          errorData?.message ||
+          errorData?.error ||
+          `Upload failed (${response.status})`;
+
+        // Lempar error agar masuk ke blok 'catch' di bawah
+        throw new Error(errorMessage);
       }
 
       const data = await response.json();
+
       setUploadedFiles((prev) => [
         ...prev,
         { name: file.name, chunks: data.chunks },
@@ -943,7 +950,7 @@ const ChatInterface = () => {
             <p className="text-center text-[10px] text-white/30 mt-3">
               {mode === "rag"
                 ? "RAG uses Supabase pgvector for semantic search"
-                : "Codexa uses Llama 3.3 70B"}
+                : "Due to limited resources, your chat history will be cleared after 24 hours"}
             </p>
           </form>
         </div>

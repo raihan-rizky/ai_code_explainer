@@ -3,11 +3,12 @@ import express from "express";
 import cors from "cors";
 import rateLimit from "express-rate-limit";
 import helmet from "helmet";
-import OpenAI from "openai";
+import { ChatOpenAI } from "@langchain/openai";
+import { HumanMessage, SystemMessage } from "@langchain/core/messages";
 import multer from "multer";
 
 console.log(
-  "[IMPORT] ✓ Core dependencies loaded (express, cors, helmet, rate-limit, multer)"
+  "[IMPORT] ✓ Core dependencies loaded (express, cors, helmet, rate-limit, multer, langchain)"
 );
 import {
   ensureSession,
@@ -25,6 +26,7 @@ import {
   clearDocuments,
   listDocuments,
   deleteDocument,
+  initEmbeddingModel,
 } from "../services/rag.js";
 console.log("[IMPORT] ✓ RAG services loaded");
 import { initCronJob } from "../services/cleanup.js";
@@ -51,6 +53,14 @@ console.log("[STARTUP] ✓ Global error handlers registered");
 // Initialize Daily Cleanup Job
 console.log("[STARTUP] 🕐 Initializing scheduled tasks...");
 initCronJob();
+
+// Preload embedding model at startup (avoid cold start on first query)
+console.log("[STARTUP] 🧠 Preloading embedding model...");
+initEmbeddingModel()
+  .then(() => console.log("[STARTUP] ✓ Embedding model preloaded"))
+  .catch((err) =>
+    console.error("[STARTUP] ⚠️ Failed to preload model:", err.message)
+  );
 
 // Configure multer for code file uploads
 const ALLOWED_EXTENSIONS = [".py", ".js", ".jsx", ".cpp", ".go", ".rs"];
@@ -130,7 +140,7 @@ app.use((req, res, next) => {
   next();
 });
 
-console.log("\n[AI] 🤖 Initializing AI client...");
+console.log("\n[AI] 🤖 Initializing LangChain AI client...");
 const API_KEY = process.env.NEBIUS_API_KEY;
 
 if (!API_KEY) {
@@ -139,11 +149,16 @@ if (!API_KEY) {
   console.log("[AI] ✓ NEBIUS_API_KEY configured");
 }
 
-const client = new OpenAI({
-  baseURL: "https://api.tokenfactory.nebius.com/v1/",
+const client = new ChatOpenAI({
+  model: "meta-llama/Llama-3.3-70B-Instruct-fast",
+  configuration: {
+    baseURL: "https://api.tokenfactory.nebius.com/v1/",
+  },
   apiKey: API_KEY,
+  temperature: 0.3,
+  maxTokens: 1024,
 });
-console.log("[AI] ✓ OpenAI client created (Nebius endpoint)");
+console.log("[AI] ✓ LangChain client created (Nebius endpoint)");
 
 // buat end point
 app.post("/api/explain-code", async (request, response) => {
@@ -155,10 +170,7 @@ app.post("/api/explain-code", async (request, response) => {
     if (!code) {
       return response.status(400).json({ error: "code is required" });
     }
-    const messages = [
-      {
-        role: "system",
-        content: `You are a helpful code assistant.
+    const systemPrompt = `You are a helpful code assistant.
 
 Your ONLY responsibility is to explain programming-related code
 (such as JavaScript, Python, C++, etc.) in simple, beginner-friendly language.
@@ -169,29 +181,23 @@ Rules:
   respond exactly with: "It is outside my information, please ask something else".
 - Do NOT add extra explanations when rejecting.
 - When explaining code, break down each syntax and explain what it does.
-- Keep explanations concise, clear, and beginner-friendly.`,
-      },
-      {
-        role: "user",
-        content: `Please explain this ${language || ""} code in simple terms:
+- Keep explanations concise, clear, and beginner-friendly.`;
+
+    const messages = [
+      new SystemMessage(systemPrompt),
+      new HumanMessage(`Please explain this ${
+        language || ""
+      } code in simple terms:
 
 \`\`\`${language || ""}
 ${code}
 \`\`\`
-`,
-      },
+`),
     ];
 
-    const AI_response = await client.chat.completions.create({
-      model: "meta-llama/Llama-3.3-70B-Instruct", // otak ai
-      messages,
-      temperature: 0.3, // seberapa creative dan deterministic, makin besar temperature makin creative, makin kecil makin deterministic,
-      // contoh kalo temperature 0.3, mungkin akan ada 30% kesalahan, tapi akan lebih creative
-      // kalo temperature : 0, jawaban bakal sama kalo inputnya sama
-      max_tokens: 400, // maksimal panjang jawaban dari ai
-    });
+    const AI_response = await client.invoke(messages);
 
-    const explanation = AI_response?.choices[0]?.message?.content;
+    const explanation = AI_response?.content;
     if (!explanation) {
       return response.status(500).json({ error: "Failed to explain code" });
     }
@@ -222,6 +228,13 @@ app.post("/api/upload-code", upload.single("code"), async (req, res) => {
       req.file.originalname,
       session.id
     );
+    //console.log("result", result);
+    if (result.success == false) {
+      console.log("result false", result);
+      return res.status(500).json({
+        error: `${req.file.originalname} already exists in the database`,
+      });
+    }
 
     res.json({
       success: true,
@@ -460,13 +473,7 @@ app.post("/api/chat/send", async (req, res) => {
       aiText = ragResult.answer;
     } else {
       // Code explanation
-      const response = await client.chat.completions.create({
-        model: "meta-llama/Llama-3.3-70B-Instruct",
-        max_tokens: 1024,
-        messages: [
-          {
-            role: "system",
-            content: `You are a helpful code assistant.
+      const codeSystemPrompt = `You are a helpful code assistant.
 
 Your ONLY responsibility is to explain programming-related code
 (such as JavaScript, Python, C++, etc.) in simple, beginner-friendly language.
@@ -477,12 +484,15 @@ Rules:
   respond exactly with: "It is outside my information, please ask something else".
 - Do NOT add extra explanations when rejecting.
 - When explaining code, break down each syntax and explain what it does.
-- Keep explanations concise, clear, and beginner-friendly.`,
-          },
-          { role: "user", content: message },
-        ],
-      });
-      aiText = response.choices[0].message.content;
+- Keep explanations concise, clear, and beginner-friendly.`;
+
+      const codeMessages = [
+        new SystemMessage(codeSystemPrompt),
+        new HumanMessage(message),
+      ];
+
+      const response = await client.invoke(codeMessages);
+      aiText = response.content;
     }
 
     const assistantMsg = await addMessage({
@@ -551,8 +561,13 @@ app.post("/api/chat/send-stream", async (req, res) => {
     let fullAiText = "";
 
     if (mode === "rag") {
-      // Stream RAG response
-      const ragContext = await queryRAG(message, chat_id);
+      // Stream RAG response - pass existing history to avoid extra DB call
+      const ragContext = await queryRAG(
+        message,
+        chat_id,
+        5,
+        conversationHistory
+      );
       fullAiText = ragContext.answer;
 
       // Simulate streaming for RAG (since queryRAG doesn't support streaming yet)
@@ -565,15 +580,8 @@ app.post("/api/chat/send-stream", async (req, res) => {
         await new Promise((resolve) => setTimeout(resolve, 20));
       }
     } else {
-      // Stream code explanation using OpenAI stream
-      const stream = await client.chat.completions.create({
-        model: "meta-llama/Llama-3.3-70B-Instruct",
-        max_tokens: 1024,
-        stream: true,
-        messages: [
-          {
-            role: "system",
-            content: `You are a helpful code assistant.
+      // Stream code explanation using LangChain stream
+      const streamSystemPrompt = `You are a helpful code assistant.
 
 Your ONLY responsibility is to explain programming-related code
 (such as JavaScript, Python, C++, etc.) in simple, beginner-friendly language.
@@ -585,18 +593,27 @@ Rules:
 - Do NOT add extra explanations when rejecting.
 - When explaining code, break down each syntax and explain what it does.
 - Keep explanations concise, clear, and beginner-friendly.
-- ALWAYS answer with example code`,
-          },
-          ...conversationHistory,
-          { role: "user", content: message },
-        ],
-      });
+- ALWAYS answer with example code`;
+
+      const streamMessages = [
+        new SystemMessage(streamSystemPrompt),
+        ...conversationHistory.map((msg) =>
+          msg.role === "user"
+            ? new HumanMessage(msg.content)
+            : new SystemMessage(msg.content)
+        ),
+        new HumanMessage(message),
+      ];
+
+      const stream = await client.stream(streamMessages);
 
       for await (const chunk of stream) {
-        const content = chunk.choices[0]?.delta?.content || "";
+        const content = chunk.content || "";
         if (content) {
           fullAiText += content;
-          res.write(`data: ${JSON.stringify({ type: "chunk", content })}\n\n`);
+          res.write(
+            `data: ${JSON.stringify({ type: "chunk", content })}\\n\\n`
+          );
         }
       }
     }

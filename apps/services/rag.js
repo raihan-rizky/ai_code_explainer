@@ -1,19 +1,25 @@
 import { RecursiveCharacterTextSplitter } from "@langchain/textsplitters";
-import OpenAI from "openai";
+import { ChatOpenAI } from "@langchain/openai";
+import { HumanMessage, SystemMessage } from "@langchain/core/messages";
 import { pipeline } from "@xenova/transformers";
 import { supabase } from "../db/supabase.js";
 import { getMessages } from "./chat_services.js";
 console.log("[RAG] 🧠 Initializing RAG service...");
 
-// Initialize Nebius OpenAI-compatible client for embeddings and LLM
-console.log("[RAG] 🔗 Connecting to Nebius AI API...");
-const nebius = new OpenAI({
-  baseURL: "https://api.tokenfactory.nebius.com/v1/",
+// Initialize LangChain ChatOpenAI client with Nebius endpoint
+console.log("[RAG] 🔗 Connecting to Nebius AI API via LangChain...");
+const llm = new ChatOpenAI({
+  model: "meta-llama/Llama-3.3-70B-Instruct-fast",
+  configuration: {
+    baseURL: "https://api.tokenfactory.nebius.com/v1/",
+  },
   apiKey: process.env.NEBIUS_API_KEY,
-  timeout: 60000, // 60 seconds
+  temperature: 0.3,
+  maxTokens: 800,
+  timeout: 60000,
   maxRetries: 3,
 });
-console.log("[RAG] ✓ Nebius client initialized");
+console.log("[RAG] ✓ LangChain client initialized");
 
 /**
  * SQL to create the documents table in Supabase:
@@ -59,9 +65,9 @@ console.log("[RAG] ✓ Nebius client initialized");
 let embeddingPipeline = null;
 
 /**
- * Initialize the embedding pipeline (called once at startup)
+ * Initialize the embedding pipeline (can be called at startup for preloading)
  */
-async function initEmbeddingModel() {
+export async function initEmbeddingModel() {
   if (embeddingPipeline) return embeddingPipeline;
 
   console.log(
@@ -93,18 +99,10 @@ async function initEmbeddingModel() {
 async function getEmbedding(text) {
   console.log("[EMBEDDING] Generating embedding for text chunk...");
 
-  //smarter chunking strategy : code-aware chunking
-  const splitter = new RecursiveCharacterTextSplitter({
-    chunkSize: 1000,
-    chunkOverlap: 200,
-  });
-
-  const chunks = await splitter.splitText(text);
-
   // Use cached pipeline or initialize if not loaded
   const generateEmbedding = await initEmbeddingModel();
 
-  const output = await generateEmbedding(chunks, {
+  const output = await generateEmbedding(text, {
     pooling: "mean",
     normalize: true,
   });
@@ -156,41 +154,149 @@ export async function uploadDocument(codeBuffer, filename, session_id) {
   // Split into chunks
   const chunks = await splitText(text);
 
-  // Generate embeddings and store in Supabase
-  console.log("\n[EMBEDDING] Starting embedding generation for all chunks...");
+  // Check file size to determine processing strategy
+  const fileSizeKB = codeBuffer.length / 1024;
+  const USE_BATCHING = fileSizeKB >= 10; // Batch for files >= 20KB
+  const BATCH_SIZE = 32;
   const documents = [];
+  const DB_INSERT_BATCH_SIZE = 100;
+  let totalInserted = 0;
 
-  for (let i = 0; i < chunks.length; i++) {
-    const chunk = chunks[i];
-    console.log(`[EMBEDDING] Processing chunk ${i + 1}/${chunks.length}...`);
-    const embedding = await getEmbedding(chunk);
+  if (USE_BATCHING) {
+    // Large file: Use parallel batching for speed
+    console.log(
+      `\n[EMBEDDING] Large file (${fileSizeKB.toFixed(
+        1
+      )}KB) - using parallel batching...`
+    );
 
-    documents.push({
-      content: chunk,
-      embedding: embedding,
-      metadata: {
-        filename: filename,
-        chunk_index: i,
-        total_chunks: chunks.length,
-      },
-      session_id: session_id,
-    });
+    console.log("check filename in the database:");
+    const { data: existingDocs, error: existingDocsError } = await supabase
+      .from("documents")
+      .select("id")
+      .eq("session_id", session_id)
+      .contains("metadata", { filename: filename })
+      .limit(1);
+
+    console.log("existingDocs", existingDocs);
+    if (existingDocsError) {
+      console.error(
+        "[DATABASE] ✗ Failed to check existing documents:",
+        existingDocsError.message
+      );
+      throw new Error(
+        `Failed to check existing documents: ${existingDocsError.message}`
+      );
+    }
+
+    if (existingDocs.length > 0) {
+      console.log(
+        `[DATABASE] ✓ Document with filename "${filename}" already exists in the database.`
+      );
+      return {
+        success: false,
+      };
+    }
+
+    for (
+      let batchStart = 0;
+      batchStart < chunks.length;
+      batchStart += BATCH_SIZE
+    ) {
+      const batchEnd = Math.min(batchStart + BATCH_SIZE, chunks.length);
+      const batchChunks = chunks.slice(batchStart, batchEnd);
+      let accumulatedDocs = [];
+
+      console.log(
+        `[EMBEDDING] Processing batch ${
+          Math.floor(batchStart / BATCH_SIZE) + 1
+        }/${Math.ceil(chunks.length / BATCH_SIZE)} (chunks ${
+          batchStart + 1
+        }-${batchEnd})...`
+      );
+
+      // Process batch in parallel
+      const batchEmbeddings = await Promise.all(
+        batchChunks.map((chunk) => getEmbedding(chunk))
+      );
+
+      // Add to documents array with metadata
+      batchChunks.forEach((chunk, i) => {
+        accumulatedDocs.push({
+          content: chunk,
+          embedding: batchEmbeddings[i],
+          metadata: {
+            filename: filename,
+            chunk_index: batchStart + i,
+            total_chunks: chunks.length,
+          },
+          session_id: session_id,
+        });
+      });
+      //Cek Buffer DB udah cukup atau belum untuk di insert ke db
+
+      if (
+        accumulatedDocs.length >= DB_INSERT_BATCH_SIZE ||
+        DB_INSERT_BATCH_SIZE + batchStart + 1 >= chunks.length
+      ) {
+        // Insert into Supabase
+        console.log(
+          `[DATABASE] Inserting batch of ${accumulatedDocs.length} rows to Supabase...`
+        );
+        const { error } = await supabase
+          .from("documents")
+          .insert(accumulatedDocs);
+
+        if (error) {
+          console.error(
+            "[DATABASE] ✗ Failed to upload documents:",
+            error.message
+          );
+          throw new Error(`Failed to upload documents: ${error.message}`);
+        }
+        totalInserted += accumulatedDocs.length;
+        accumulatedDocs = []; // Kosongkan buffer setelah insert
+      }
+
+      console.log(
+        "[EMBEDDING] ✓ All embeddings generated (parallel with batching)\n"
+      );
+    }
+  } else {
+    // Small file: Process sequentially (simpler, less memory)
+    console.log(
+      `\n[EMBEDDING] Small file (${fileSizeKB.toFixed(
+        1
+      )}KB) - processing sequentially...`
+    );
+    for (let i = 0; i < chunks.length; i++) {
+      console.log(`[EMBEDDING] Processing chunk ${i + 1}/${chunks.length}...`);
+      const embedding = await getEmbedding(chunks[i]);
+
+      documents.push({
+        content: chunks[i],
+        embedding: embedding,
+        metadata: {
+          filename: filename,
+          chunk_index: i,
+          total_chunks: chunks.length,
+        },
+        session_id: session_id,
+      });
+    }
+    totalInserted += documents.length;
+    console.log(`[DATABASE] Inserting ${totalInserted} rows to Supabase...`);
+    const { error } = await supabase.from("documents").insert(documents);
+
+    if (error) {
+      console.error("[DATABASE] ✗ Failed to upload documents:", error.message);
+      throw new Error(`Failed to upload documents: ${error.message}`);
+    }
   }
+  console.log(`[DATABASE] ✓ Successfully inserted ${chunks.length} embeddings`);
+
   console.log("[EMBEDDING] ✓ All embeddings generated\n");
 
-  // Insert into Supabase
-  console.log("[DATABASE] Inserting documents into Supabase...");
-  const { data, error } = await supabase
-    .from("documents")
-    .insert(documents)
-    .select("id");
-
-  if (error) {
-    console.error("[DATABASE] ✗ Failed to upload documents:", error.message);
-    throw new Error(`Failed to upload documents: ${error.message}`);
-  }
-
-  console.log(`[DATABASE] ✓ Successfully inserted ${data.length} embeddings`);
   console.log("\n========================================");
   console.log("[UPLOAD] ✓ Document upload complete!");
   console.log("========================================\n");
@@ -199,14 +305,22 @@ export async function uploadDocument(codeBuffer, filename, session_id) {
     success: true,
     filename: filename,
     chunks_count: chunks.length,
-    document_ids: data.map((d) => d.id),
   };
 }
 
 /**
  * Query documents using similarity search and generate response
+ * @param {string} queryText - The query/question
+ * @param {string} chat_id - Chat ID for context
+ * @param {number} topK - Number of documents to retrieve
+ * @param {Array} existingHistory - Optional: pass existing history to avoid extra DB call
  */
-export async function queryRAG(queryText, chat_id, topK = 5) {
+export async function queryRAG(
+  queryText,
+  chat_id,
+  topK = 5,
+  existingHistory = null
+) {
   console.log("\n========================================");
   console.log("[QUERY] Starting RAG query...");
   console.log(`[QUERY] Question: ${queryText}`);
@@ -244,12 +358,20 @@ export async function queryRAG(queryText, chat_id, topK = 5) {
     );
   });
 
-  //add previous chat for more context
-  const history = await getMessages(chat_id);
-  const conversationHistory = history.slice(-10).map((msg) => ({
-    role: msg.role,
-    content: msg.content,
-  }));
+  // Use provided history or fetch from DB
+  let conversationHistory;
+  if (existingHistory) {
+    console.log(
+      "[HISTORY] Using provided conversation history (no extra DB call)"
+    );
+    conversationHistory = existingHistory;
+  } else {
+    const history = await getMessages(chat_id);
+    conversationHistory = history.slice(-10).map((msg) => ({
+      role: msg.role,
+      content: msg.content,
+    }));
+  }
 
   // Build context from retrieved documents
   const context = documents
@@ -264,14 +386,10 @@ export async function queryRAG(queryText, chat_id, topK = 5) {
       return true;
     });
   console.log("uploadedDocuments", uploadedDocuments[0].filename);
-  // Generate response using Nebius LLM
-  console.log("\n[LLM] Generating response with Llama...");
-  const response = await nebius.chat.completions.create({
-    model: "meta-llama/Llama-3.3-70B-Instruct",
-    messages: [
-      {
-        role: "system",
-        content: `You are a context-aware assistant.
+  // Generate response using LangChain LLM
+  console.log("\n[LLM] Generating response with LangChain...");
+
+  const systemPrompt = `You are a context-aware assistant.
 
 Your task:
 - Answer the user's question using ONLY the information provided in the Context.
@@ -292,23 +410,28 @@ Rules:
     .filter((doc) => doc && doc.filename)
     .map((doc, i) => `Source ${i + 1}: ${doc.filename}`)
     .join(", ")}
-- When mention sources, ALWAYS give the source name.
-Do not mention sources that are not relevant to the answer.`,
-      },
-      ...conversationHistory,
-      {
-        role: "user",
-        content: `Context:\n${context}\n\nQuestion: ${queryText}`,
-      },
-    ],
-    temperature: 0.3,
-    max_tokens: 800,
-  });
+- When mention sources, ALWAYS give the source file name.
+Do not mention sources that are not relevant to the answer.`;
 
-  const answer = response?.choices[0]?.message?.content;
-  console.log("[LLM] ✓ Response generated");
+  // Build messages array for LangChain
+  const messages = [
+    new SystemMessage(systemPrompt),
+    ...conversationHistory.map((msg) =>
+      msg.role === "user"
+        ? new HumanMessage(msg.content)
+        : new SystemMessage(msg.content)
+    ),
+    new HumanMessage(`Context:\n${context}\n\nQuestion: ${queryText}`),
+  ];
+
+  const inferenceStart = Date.now();
+  const response = await llm.invoke(messages);
+  const inferenceTime = Date.now() - inferenceStart;
+  const answer = response?.content;
+  console.log(`[LLM] ✓ Response generated in ${inferenceTime}ms`);
   console.log("\n========================================");
   console.log("[QUERY] ✓ RAG query complete!");
+  console.log(`[QUERY] ⏱️ LLM inference time: ${inferenceTime}ms`);
   console.log("========================================\n");
 
   return {
