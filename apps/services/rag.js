@@ -329,10 +329,12 @@ export async function queryRAG(
   console.log("[QUERY] Starting RAG query...");
   console.log(`[QUERY] Question: ${queryText}`);
   console.log("========================================\n");
-
+  const finalQueryText = queryText.startsWith("query:")
+    ? queryText
+    : "query: " + queryText;
   // Get query embedding
   console.log("[QUERY] Generating query embedding...");
-  const queryEmbedding = await getEmbedding(queryText);
+  const queryEmbedding = await getEmbedding(finalQueryText);
   console.log("[QUERY] ✓ Query embedding generated\n");
 
   // Search for similar documents using Supabase RPC
@@ -340,6 +342,7 @@ export async function queryRAG(
   const { data: documents, error } = await supabase.rpc("match_documents", {
     query_embedding: queryEmbedding,
     match_count: topK,
+    match_threshold: 0.75,
   });
 
   if (error) {
