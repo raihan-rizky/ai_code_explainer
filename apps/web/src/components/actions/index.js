@@ -3,7 +3,7 @@
 export async function explainCode(prevState, formData) {
   const code = formData.get("code");
   const language = formData.get("language");
-  console.log(`Generating explanation for ${language} code`);
+  //console.log(`Generating explanation for ${language} code`);
   try {
     const response = await fetch(
       `${import.meta.env.VITE_API_BASE_URL}/explain-code`,

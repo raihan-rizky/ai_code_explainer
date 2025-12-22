@@ -257,7 +257,7 @@ const ChatInterface = () => {
       const formData = new FormData();
       formData.append("code", file);
       const session_key = getSessionKey();
-      console.log("session_key", session_key);
+      //console.log("session_key", session_key);
       formData.append("session_key", session_key);
       const response = await fetch(
         `${import.meta.env.VITE_API_BASE_URL}/upload-code`,
@@ -636,7 +636,7 @@ const ChatInterface = () => {
                 </div>
                 <div className="flex flex-col gap-2">
                   <div className="bg-[#1b3224] border border-[#254632] rounded-2xl rounded-tl-none p-4 shadow-sm">
-                    {console.log("loading session", loadingSession)}
+                    {/* {console.log("loading session", loadingSession)} */}
                     {loadingSession ? (
                       <ThreeDot
                         variant="pulsate"
@@ -748,8 +748,8 @@ const ChatInterface = () => {
                               const language = match?.[1] || "text";
 
                               const terminal_language = languageMap(language);
-                              console.log("codeEl.className:", className);
-                              console.log("language :", language);
+                              //console.log("codeEl.className:", className);
+                              //console.log("language :", language);
 
                               return (
                                 <div className="terminal-container my-3 rounded-lg overflow-hidden border border-[#36e27b]/20 shadow-[0_0_15px_rgba(54,226,123,0.1)] animate-fadeIn">
