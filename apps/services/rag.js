@@ -8,7 +8,7 @@ console.log("[RAG] 🧠 Initializing RAG service...");
 
 // Initialize LangChain ChatOpenAI client with Nebius endpoint
 console.log("[RAG] 🔗 Connecting to Nebius AI API via LangChain...");
-const llm = new ChatOpenAI({
+export const llm = new ChatOpenAI({
   model: "meta-llama/Llama-3.3-70B-Instruct-fast",
   configuration: {
     baseURL: "https://api.tokenfactory.nebius.com/v1/",
@@ -20,6 +20,9 @@ const llm = new ChatOpenAI({
   maxRetries: 3,
 });
 console.log("[RAG] ✓ LangChain client initialized");
+
+// Re-export message types for streaming use
+export { HumanMessage, SystemMessage };
 
 /**
  * SQL to create the documents table in Supabase:
@@ -452,6 +455,147 @@ Do not mention sources that are not relevant to the answer.`;
       filename: doc.metadata?.filename,
       similarity: doc.similarity,
     })),
+  };
+}
+
+/**
+ * Prepare RAG context for streaming - returns messages array without invoking LLM
+ * @param {string} queryText - The query/question
+ * @param {string} chat_id - Chat ID for context
+ * @param {number} topK - Number of documents to retrieve
+ * @param {Array} existingHistory - Optional: pass existing history to avoid extra DB call
+ * @returns {Object} - { messages, sources, noDocuments }
+ */
+export async function prepareRAGContext(
+  queryText,
+  chat_id,
+  topK = 5,
+  existingHistory = null
+) {
+  console.log("\n========================================");
+  console.log("[RAG_STREAM] Preparing RAG context for streaming...");
+  console.log(`[RAG_STREAM] Question: ${queryText}`);
+  console.log("========================================\n");
+
+  const finalQueryText = queryText.startsWith("query:")
+    ? queryText
+    : "query: " + queryText;
+
+  // Get query embedding
+  console.log("[RAG_STREAM] Generating query embedding...");
+  const queryEmbedding = await getEmbedding(finalQueryText);
+  console.log("[RAG_STREAM] ✓ Query embedding generated\n");
+
+  // Search for similar documents using Supabase RPC
+  console.log("[RAG_STREAM] Performing similarity search...");
+  const { data: documents, error } = await supabase.rpc("match_documents", {
+    query_embedding: queryEmbedding,
+    match_count: topK,
+    match_threshold: 0.75,
+  });
+
+  if (error) {
+    console.error("[RAG_STREAM] ✗ Similarity search failed:", error.message);
+    throw new Error(`Similarity search failed: ${error.message}`);
+  }
+
+  if (!documents || documents.length === 0) {
+    console.log("[RAG_STREAM] No relevant documents found");
+    return {
+      messages: null,
+      sources: [],
+      noDocuments: true,
+      noDocsMessage:
+        "No relevant documents found. Please upload a code file first.",
+    };
+  }
+
+  console.log(`[RAG_STREAM] ✓ Found ${documents.length} relevant documents`);
+  documents.forEach((doc, i) => {
+    console.log(
+      `  - Source ${i + 1}: similarity ${(doc.similarity * 100).toFixed(1)}%`
+    );
+  });
+
+  // Use provided history or fetch from DB
+  let conversationHistory;
+  if (existingHistory) {
+    console.log(
+      "[RAG_STREAM] Using provided conversation history (no extra DB call)"
+    );
+    conversationHistory = existingHistory;
+  } else {
+    const history = await getMessages(chat_id);
+    conversationHistory = history.slice(-10).map((msg) => ({
+      role: msg.role,
+      content: msg.content,
+    }));
+  }
+
+  // Build context from retrieved documents
+  const context = documents
+    .map((doc, i) => `[Source ${i + 1}]: ${doc.content}`)
+    .join("\n\n");
+
+  const seen = new Set();
+  const uploadedDocuments = documents
+    .map((doc) => doc.metadata)
+    .filter((meta) => {
+      if (seen.has(meta.filename)) return false;
+      seen.add(meta.filename);
+      return true;
+    });
+
+  console.log(
+    "[RAG_STREAM] Building system prompt with sources:",
+    uploadedDocuments.map((d) => d.filename).join(", ")
+  );
+
+  const systemPrompt = `You are a context-aware assistant.
+
+Your task:
+- Answer the user's question using ONLY the information provided in the Context.
+- Do NOT use external knowledge or assumptions.
+
+Rules:
+- If the answer cannot be found in the Context, respond exactly with:
+  "The information is not available in the provided context. Please upload a code file first."
+- Do NOT guess or hallucinate.
+- Keep answers clear, concise, and factual.
+- If the answer contains code parts, ALWAYS use the following format:
+<code>
+</code>
+- DO NOT provide answers contains latex parts.
+- When answering, ALWAYS cite the source(s) explicitly using:
+
+  ${uploadedDocuments
+    .filter((doc) => doc && doc.filename)
+    .map((doc, i) => `Source ${i + 1}: ${doc.filename}`)
+    .join(", ")}
+- When mention sources, ALWAYS give the source file name.
+Do not mention sources that are not relevant to the answer.`;
+
+  // Build messages array for LangChain streaming
+  const messages = [
+    new SystemMessage(systemPrompt),
+    ...conversationHistory.map((msg) =>
+      msg.role === "user"
+        ? new HumanMessage(msg.content)
+        : new SystemMessage(msg.content)
+    ),
+    new HumanMessage(`Context:\n${context}\n\nQuestion: ${queryText}`),
+  ];
+
+  console.log("[RAG_STREAM] ✓ Context prepared, ready for streaming\n");
+
+  return {
+    messages,
+    sources: documents.map((doc) => ({
+      content: doc.content.substring(0, 200) + "...",
+      filename: doc.metadata?.filename,
+      similarity: doc.similarity,
+    })),
+    noDocuments: false,
   };
 }
 

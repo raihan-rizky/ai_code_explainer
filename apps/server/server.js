@@ -27,6 +27,8 @@ import {
   listDocuments,
   deleteDocument,
   initEmbeddingModel,
+  prepareRAGContext,
+  llm as ragLlm,
 } from "../services/rag.js";
 console.log("[IMPORT] ✓ RAG services loaded");
 import { initCronJob } from "../services/cleanup.js";
@@ -561,23 +563,36 @@ app.post("/api/chat/send-stream", async (req, res) => {
     let fullAiText = "";
 
     if (mode === "rag") {
-      // Stream RAG response - pass existing history to avoid extra DB call
-      const ragContext = await queryRAG(
+      // TRUE STREAMING: Prepare RAG context then stream LLM response
+      console.log("[STREAM] Using true RAG streaming...");
+      const ragContext = await prepareRAGContext(
         message,
         chat_id,
         5,
         conversationHistory
       );
-      fullAiText = ragContext.answer;
 
-      // Simulate streaming for RAG (since queryRAG doesn't support streaming yet)
-      const words = fullAiText.split(" ");
-      for (let i = 0; i < words.length; i++) {
-        const chunk = words[i] + (i < words.length - 1 ? " " : "");
+      // Handle case where no documents found
+      if (ragContext.noDocuments) {
+        fullAiText = ragContext.noDocsMessage;
         res.write(
-          `data: ${JSON.stringify({ type: "chunk", content: chunk })}\n\n`
+          `data: ${JSON.stringify({ type: "chunk", content: fullAiText })}\n\n`
         );
-        await new Promise((resolve) => setTimeout(resolve, 20));
+      } else {
+        // Stream LLM response token by token
+        console.log("[STREAM] Starting true token streaming for RAG...");
+        const stream = await ragLlm.stream(ragContext.messages);
+
+        for await (const chunk of stream) {
+          const content = chunk.content || "";
+          if (content) {
+            fullAiText += content;
+            res.write(
+              `data: ${JSON.stringify({ type: "chunk", content })}\n\n`
+            );
+          }
+        }
+        console.log("[STREAM] ✓ RAG streaming complete");
       }
     } else {
       // Stream code explanation using LangChain stream
@@ -589,7 +604,7 @@ Your ONLY responsibility is to explain programming-related code
 Rules:
 - Only answer questions related to programming or source code.
 - If the user asks about anything outside programming or code,
-  respond exactly with: "It is outside my information, please ask something else".
+  respond exactly with: "That’s outside my information. Please ask something related to programming or code.".
 - Do NOT add extra explanations when rejecting.
 - When explaining code, break down each syntax and explain what it does.
 - Keep explanations concise, clear, and beginner-friendly.
