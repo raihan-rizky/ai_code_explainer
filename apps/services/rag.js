@@ -97,7 +97,10 @@ export async function initEmbeddingModel() {
  * Generate embeddings using Xenova/multilingual-e5-small (384 dimensions)
  */
 async function getEmbedding(text) {
-  console.log("[EMBEDDING] Generating embedding for text chunk...");
+  const startTime = Date.now();
+  console.log(
+    `[EMBEDDING] Generating embedding for text chunk (${text.length} chars)...`
+  );
 
   // Use cached pipeline or initialize if not loaded
   const generateEmbedding = await initEmbeddingModel();
@@ -107,8 +110,9 @@ async function getEmbedding(text) {
     normalize: true,
   });
   const embedding = Array.from(output.data);
+  const duration = Date.now() - startTime;
   console.log(
-    `[EMBEDDING] ✓ Embedding generated (${embedding.length} dimensions)`
+    `[EMBEDDING] ✓ Embedding generated (${embedding.length} dimensions) in ${duration}ms`
   );
   return embedding;
 }
