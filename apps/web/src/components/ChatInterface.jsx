@@ -241,13 +241,32 @@ const ChatInterface = () => {
   };
 
   // Handle PDF upload
+  const MAX_FILE_SIZE_KB = 500; // Maximum file size in KB
   const handleFileUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    // Check file size (max 500KB)
+    const fileSizeKB = file.size / 1024;
+    if (fileSizeKB > MAX_FILE_SIZE_KB) {
+      showError(
+        `File too large (${fileSizeKB.toFixed(
+          1
+        )}KB). Maximum size is ${MAX_FILE_SIZE_KB}KB.`,
+        () => fileInputRef.current?.click()
+      );
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
+
     const ext = file.name.toLowerCase().slice(file.name.lastIndexOf("."));
     const allowedExtensions = [".py", ".js", ".jsx", ".cpp", ".go", ".rs"];
     if (!allowedExtensions.includes(ext)) {
-      alert("Please upload a code file (.py, .js, .jsx, .cpp, .go, .rs)");
+      showError(
+        "Invalid file type. Please upload a code file (.py, .js, .jsx, .cpp, .go, .rs)",
+        () => fileInputRef.current?.click()
+      );
+      if (fileInputRef.current) fileInputRef.current.value = "";
       return;
     }
 
